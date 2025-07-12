@@ -157,7 +157,7 @@ class MenuBarManager: ObservableObject {
         }
         
         // If no window exists, create one
-        let contentView = ContentView()
+        let contentView = ContentView(showCloseButton: false)
         let hostingController = NSHostingController(rootView: contentView)
         let window = NSWindow(contentViewController: hostingController)
         window.title = "MarkToRTF"

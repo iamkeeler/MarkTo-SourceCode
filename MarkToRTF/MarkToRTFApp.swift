@@ -7,7 +7,7 @@ struct MarkToRTFApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(showCloseButton: false)
                 .frame(width: 400, height: 350)
                 .background(Color(NSColor.windowBackgroundColor))
         }
