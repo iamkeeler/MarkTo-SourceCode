@@ -17,7 +17,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             // Header with glass effect
             HStack {
-                Text("MarkToRTF")
+                Text("MarkTo")
                     .font(.title2)
                     .fontWeight(.semibold)
                     .foregroundStyle(.primary)

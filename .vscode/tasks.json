@@ -2,14 +2,14 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "Build MarkToRTF",
+			"label": "Build MarkTo",
 			"type": "shell",
 			"command": "xcodebuild",
 			"args": [
 				"-project",
-				"MarkToRTF.xcodeproj",
+				"MarkTo.xcodeproj",
 				"-scheme",
-				"MarkToRTF",
+				"MarkTo",
 				"-configuration",
 				"Debug",
 				"build"

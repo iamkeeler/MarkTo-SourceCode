@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct MarkToRTFApp: App {
+struct MarkToApp: App {
     @StateObject private var menuBarManager = MenuBarManager()
     @StateObject private var appDelegate = AppDelegate()
     

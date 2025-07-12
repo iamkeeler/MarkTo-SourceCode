@@ -29,7 +29,8 @@ class MenuBarManager: ObservableObject {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: "MarkToRTF")
+            button.image = NSImage(named: "MenuBarIcon")
+            button.image?.isTemplate = true
             button.action = #selector(statusItemClicked)
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -54,7 +55,7 @@ class MenuBarManager: ObservableObject {
         menu.addItem(NSMenuItem(title: "Show Main Window", action: #selector(showMainWindow), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Quit MarkToRTF", action: #selector(quitApp), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Quit MarkTo", action: #selector(quitApp), keyEquivalent: "q"))
         
         // Set targets for menu items
         for item in menu.items {
@@ -164,7 +165,7 @@ class MenuBarManager: ObservableObject {
         let contentView = ContentView(showCloseButton: false)
         let hostingController = NSHostingController(rootView: contentView)
         let window = NSWindow(contentViewController: hostingController)
-        window.title = "MarkToRTF"
+        window.title = "MarkTo"
         window.setContentSize(NSSize(width: 400, height: 350))
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.center()

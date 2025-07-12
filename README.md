@@ -1,4 +1,4 @@
-# MarkToRTF
+# MarkTo
 
 A lightweight native macOS application for converting Markdown to RTF (Rich Text Format).
 

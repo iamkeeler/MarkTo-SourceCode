@@ -1,10 +1,10 @@
 # Product Requirements Document (PRD)
 
 ## Product Name
-**MarkToRTF**
+**MarkTo**
 
 ## Overview
-MarkToRTF is a lightweight macOS application designed for users who frequently work with Markdown and need a quick way to convert it to Rich Text Format (RTF). The app will provide a simple, modern, and efficient user experience, leveraging a cross-platform framework to ensure maintainability and scalability.
+MarkTo is a lightweight macOS application designed for users who frequently work with Markdown and need a quick way to convert it to Rich Text Format (RTF). The app will provide a simple, modern, and efficient user experience, leveraging a cross-platform framework to ensure maintainability and scalability.
 
 ---
 

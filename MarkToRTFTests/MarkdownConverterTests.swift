@@ -1,5 +1,5 @@
 import XCTest
-@testable import MarkToRTF
+@testable import MarkTo
 
 final class MarkdownConverterTests: XCTestCase {
     
