@@ -188,10 +188,10 @@ class MenuBarManager: ObservableObject {
             settingsWindow?.isReleasedWhenClosed = false
             settingsWindow?.center()
             
-            // Apply glass styling
-            settingsWindow?.titlebarAppearsTransparent = true
-            settingsWindow?.backgroundColor = .clear
-            settingsWindow?.isOpaque = false
+            // Apply subtle glass styling while keeping the titlebar functional
+            settingsWindow?.titlebarAppearsTransparent = false
+            settingsWindow?.backgroundColor = NSColor.windowBackgroundColor
+            settingsWindow?.isOpaque = true
         }
         
         settingsWindow?.makeKeyAndOrderFront(nil)

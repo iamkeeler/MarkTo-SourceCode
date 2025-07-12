@@ -19,9 +19,9 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 24)
-            .padding(.top, 24)
+            .padding(.top, 20)
             .padding(.bottom, 20)
-            .background(.regularMaterial, in: Rectangle())
+            .background(Color(NSColor.controlBackgroundColor), in: Rectangle())
             
             ScrollView {
                 VStack(spacing: 20) {
@@ -114,7 +114,7 @@ struct SettingsView: View {
                 .padding(.bottom, 24)
             }
         }
-        .background(.ultraThinMaterial)
+        .background(Color(NSColor.windowBackgroundColor))
         .frame(width: 450, height: 400)
     }
 }
