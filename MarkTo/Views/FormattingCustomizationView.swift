@@ -76,12 +76,24 @@ struct FormattingCustomizationView: View {
                         .textFieldStyle(.roundedBorder)
                 }
                 
-                Picker("Category", selection: $viewModel.selectedCategory) {
-                    ForEach(ElementCategory.allCases, id: \.self) { category in
-                        Text(category.rawValue).tag(category)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Category")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                    
+                    Picker("Category", selection: $viewModel.selectedCategory) {
+                        ForEach(ElementCategory.allCases, id: \.self) { category in
+                            HStack {
+                                Image(systemName: iconForCategory(category))
+                                Text(category.rawValue)
+                            }
+                            .tag(category)
+                        }
                     }
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .pickerStyle(.segmented)
             }
             .padding()
             
@@ -172,11 +184,39 @@ struct FormattingCustomizationView: View {
     
     // MARK: - Preview Card
     private var previewCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("Live Preview", systemImage: "eye")
+                Image(systemName: "eye.fill")
+                    .foregroundStyle(.blue)
+                Text("Live Preview")
                     .font(.headline)
+                    .fontWeight(.medium)
                 Spacer()
+                
+                // Current values display
+                HStack(spacing: 12) {
+                    Text("\(Int(viewModel.currentFormatting.fontSize))pt")
+                        .font(.caption.monospacedDigit())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(4)
+                    
+                    Text(viewModel.currentFormatting.fontWeight.displayName)
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(4)
+                    
+                    Text("×\(String(format: "%.1f", viewModel.currentFormatting.lineSpacing))")
+                        .font(.caption.monospacedDigit())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(4)
+                }
+                .foregroundStyle(.secondary)
             }
             
             Text(viewModel.selectedElement.exampleText)
@@ -189,221 +229,342 @@ struct FormattingCustomizationView: View {
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: 8)
                         .fill(Color(nsColor: .textBackgroundColor))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 12)
+                            RoundedRectangle(cornerRadius: 8)
                                 .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
                         )
                 )
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: .controlBackgroundColor))
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.blue.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                )
         )
     }
     
     // MARK: - Presets Section
     private var presetsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Quick Presets", systemImage: "wand.and.rays")
-                .font(.headline)
+            HStack {
+                Image(systemName: "wand.and.rays")
+                    .foregroundStyle(.purple)
+                Text("Quick Presets")
+                    .font(.headline)
+                    .fontWeight(.medium)
+                Spacer()
+            }
             
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 ForEach(FormattingPreset.allCases, id: \.self) { preset in
-                    Button(preset.displayName) {
-                        viewModel.applyPreset(preset)
+                    Button(action: { viewModel.applyPreset(preset) }) {
+                        VStack(spacing: 4) {
+                            Image(systemName: preset.iconName)
+                                .font(.title2)
+                                .foregroundStyle(.purple)
+                            
+                            Text(preset.displayName)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.purple.opacity(0.1))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.purple.opacity(0.3), lineWidth: 1)
+                                )
+                        )
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                    .buttonStyle(.plain)
                 }
             }
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: .controlBackgroundColor))
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.purple.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+                )
         )
     }
     
     // MARK: - Controls Grid
     private var controlsGrid: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Font Size Control
-            fontSizeControl
+        VStack(alignment: .leading, spacing: 20) {
+            // Typography Section
+            typographySection
             
-            // Font Weight Control
-            fontWeightControl
-            
-            // Line Spacing Control
-            lineSpacingControl
+            // Spacing Section
+            spacingSection
             
             // Character Spacing (for code elements)
             if viewModel.selectedElement == .code {
-                characterSpacingControl
+                advancedSection
             }
         }
     }
     
-    // MARK: - Font Size Control
-    private var fontSizeControl: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    // MARK: - Typography Section
+    private var typographySection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Section Header
             HStack {
-                Label("Font Size", systemImage: "textformat.size")
-                    .font(.subheadline.weight(.medium))
+                Image(systemName: "textformat.abc")
+                    .foregroundStyle(.blue)
+                Text("Typography")
+                    .font(.headline)
+                    .fontWeight(.medium)
+                Spacer()
+            }
+            .padding(.bottom, 4)
+            
+            // Font Size Control
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Font Size")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
+                    HStack(spacing: 8) {
+                        TextField("Size", 
+                                value: Binding(
+                                    get: { Int(viewModel.currentFormatting.fontSize) },
+                                    set: { viewModel.updateFontSize(Double($0)) }
+                                ),
+                                format: .number
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 60)
+                        
+                        Text("pt")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        
+                        Stepper("", 
+                               value: Binding(
+                                   get: { viewModel.currentFormatting.fontSize },
+                                   set: { viewModel.updateFontSize($0) }
+                               ),
+                               in: 8...72,
+                               step: 1
+                        )
+                        .labelsHidden()
+                    }
+                }
                 
                 Spacer()
                 
-                Text("\(Int(viewModel.currentFormatting.fontSize))pt")
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color(nsColor: .quaternaryLabelColor))
-                    )
-            }
-            
-            Slider(
-                value: Binding(
-                    get: { viewModel.currentFormatting.fontSize },
-                    set: { viewModel.updateFontSize($0) }
-                ),
-                in: 8...72,
-                step: 1
-            )
-            
-            HStack {
-                Text("8pt")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                Spacer()
-                Text("72pt")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        )
-    }
-    
-    // MARK: - Font Weight Control
-    private var fontWeightControl: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Font Weight", systemImage: "bold")
-                .font(.subheadline.weight(.medium))
-            
-            Picker("Font Weight", selection: Binding(
-                get: { viewModel.currentFormatting.fontWeight },
-                set: { viewModel.updateFontWeight($0) }
-            )) {
-                ForEach(FontWeight.allCases) { weight in
-                    Text(weight.displayName).tag(weight)
+                // Font Weight Control
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Weight")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
+                    Picker("Font Weight", selection: Binding(
+                        get: { viewModel.currentFormatting.fontWeight },
+                        set: { viewModel.updateFontWeight($0) }
+                    )) {
+                        ForEach(FontWeight.allCases) { weight in
+                            Text(weight.displayName).tag(weight)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 120)
                 }
             }
-            .pickerStyle(.menu)
         }
-        .padding(16)
+        .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: .controlBackgroundColor))
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.blue.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                )
         )
     }
     
-    // MARK: - Line Spacing Control
-    private var lineSpacingControl: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    // MARK: - Spacing Section
+    private var spacingSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Section Header
             HStack {
-                Label("Line Spacing", systemImage: "line.3.horizontal.decrease")
-                    .font(.subheadline.weight(.medium))
-                
+                Image(systemName: "line.3.horizontal.decrease")
+                    .foregroundStyle(.green)
+                Text("Spacing")
+                    .font(.headline)
+                    .fontWeight(.medium)
                 Spacer()
-                
-                Text(String(format: "%.1f", viewModel.currentFormatting.lineSpacing))
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color(nsColor: .quaternaryLabelColor))
-                    )
             }
+            .padding(.bottom, 4)
             
-            Slider(
-                value: Binding(
-                    get: { viewModel.currentFormatting.lineSpacing },
-                    set: { viewModel.updateLineSpacing($0) }
-                ),
-                in: 0.8...3.0,
-                step: 0.1
-            )
-            
-            HStack {
-                Text("0.8")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+            // Line Spacing Control
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Line Spacing")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
+                    HStack(spacing: 8) {
+                        TextField("Spacing", 
+                                value: Binding(
+                                    get: { viewModel.currentFormatting.lineSpacing },
+                                    set: { viewModel.updateLineSpacing($0) }
+                                ),
+                                format: .number.precision(.fractionLength(1))
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 70)
+                        
+                        Stepper("", 
+                               value: Binding(
+                                   get: { viewModel.currentFormatting.lineSpacing },
+                                   set: { viewModel.updateLineSpacing($0) }
+                               ),
+                               in: 0.8...3.0,
+                               step: 0.1
+                        )
+                        .labelsHidden()
+                    }
+                }
+                
                 Spacer()
-                Text("3.0")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                
+                // Quick spacing buttons
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Quick Set")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
+                    HStack(spacing: 8) {
+                        Button("Tight") {
+                            viewModel.updateLineSpacing(1.0)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        
+                        Button("Normal") {
+                            viewModel.updateLineSpacing(1.2)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        
+                        Button("Loose") {
+                            viewModel.updateLineSpacing(1.6)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
             }
         }
-        .padding(16)
+        .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: .controlBackgroundColor))
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.green.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.green.opacity(0.2), lineWidth: 1)
+                )
         )
     }
     
-    // MARK: - Character Spacing Control
-    private var characterSpacingControl: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    // MARK: - Advanced Section
+    private var advancedSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Section Header
             HStack {
-                Label("Character Spacing", systemImage: "character.cursor.ibeam")
-                    .font(.subheadline.weight(.medium))
-                
+                Image(systemName: "slider.horizontal.3")
+                    .foregroundStyle(.orange)
+                Text("Advanced")
+                    .font(.headline)
+                    .fontWeight(.medium)
                 Spacer()
-                
-                Text(String(format: "%.1f", viewModel.currentFormatting.characterSpacing))
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color(nsColor: .quaternaryLabelColor))
-                    )
             }
+            .padding(.bottom, 4)
             
-            Slider(
-                value: Binding(
-                    get: { viewModel.currentFormatting.characterSpacing },
-                    set: { viewModel.updateCharacterSpacing($0) }
-                ),
-                in: -2.0...5.0,
-                step: 0.1
-            )
-            
-            HStack {
-                Text("-2.0")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+            // Character Spacing Control
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Character Spacing")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
+                    HStack(spacing: 8) {
+                        TextField("Spacing", 
+                                value: Binding(
+                                    get: { viewModel.currentFormatting.characterSpacing },
+                                    set: { viewModel.updateCharacterSpacing($0) }
+                                ),
+                                format: .number.precision(.fractionLength(1))
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 70)
+                        
+                        Text("pts")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        
+                        Stepper("", 
+                               value: Binding(
+                                   get: { viewModel.currentFormatting.characterSpacing },
+                                   set: { viewModel.updateCharacterSpacing($0) }
+                               ),
+                               in: -2.0...5.0,
+                               step: 0.1
+                        )
+                        .labelsHidden()
+                    }
+                }
+                
                 Spacer()
-                Text("5.0")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                
+                // Quick character spacing buttons
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Quick Set")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
+                    HStack(spacing: 8) {
+                        Button("Tight") {
+                            viewModel.updateCharacterSpacing(-0.5)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        
+                        Button("Normal") {
+                            viewModel.updateCharacterSpacing(0.0)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        
+                        Button("Wide") {
+                            viewModel.updateCharacterSpacing(1.0)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
             }
         }
-        .padding(16)
+        .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: .controlBackgroundColor))
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.orange.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+                )
         )
     }
     
@@ -416,6 +577,15 @@ struct FormattingCustomizationView: View {
         case .italic: return "italic"
         case .code: return "chevron.left.forwardslash.chevron.right"
         case .blockquote: return "quote.bubble"
+        }
+    }
+    
+    private func iconForCategory(_ category: ElementCategory) -> String {
+        switch category {
+        case .headers: return "textformat.size"
+        case .text: return "text.alignleft"
+        case .inline: return "textformat"
+        case .blocks: return "square.stack"
         }
     }
     
@@ -486,6 +656,15 @@ enum FormattingPreset: String, CaseIterable {
     case large = "Large"
     
     var displayName: String { rawValue }
+    
+    var iconName: String {
+        switch self {
+        case .compact: return "arrow.down.square"
+        case .standard: return "square"
+        case .spacious: return "arrow.up.square"
+        case .large: return "plus.square"
+        }
+    }
     
     func apply(to formatting: inout TextFormatting, for element: MarkdownElement) {
         switch self {
