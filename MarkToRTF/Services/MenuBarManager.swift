@@ -16,6 +16,7 @@ class PopoverWindow: NSWindow {
 class MenuBarManager: ObservableObject {
     private var statusItem: NSStatusItem?
     private var popoverWindow: NSWindow?
+    private var settingsWindow: NSWindow?
     private var globalClickMonitor: Any?
     private var localClickMonitor: Any?
     
@@ -61,9 +62,11 @@ class MenuBarManager: ObservableObject {
         }
         
         guard let statusButton = statusItem?.button else { return }
-        statusButton.menu = menu
-        statusButton.performClick(nil)
-        statusButton.menu = nil
+        
+        // Show the menu at the button location
+        let buttonFrame = statusButton.frame
+        let menuOrigin = NSPoint(x: buttonFrame.minX, y: buttonFrame.minY - 5)
+        menu.popUp(positioning: nil, at: menuOrigin, in: statusButton)
     }
     
     private func toggleDropdownWindow() {
@@ -169,7 +172,30 @@ class MenuBarManager: ObservableObject {
     }
     
     @objc private func showSettings() {
-        NSApplication.shared.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        if settingsWindow == nil {
+            let settingsView = SettingsView()
+            let hostingController = NSHostingController(rootView: settingsView)
+            
+            settingsWindow = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 450, height: 500),
+                styleMask: [.titled, .closable, .miniaturizable],
+                backing: .buffered,
+                defer: false
+            )
+            
+            settingsWindow?.title = "Settings"
+            settingsWindow?.contentViewController = hostingController
+            settingsWindow?.isReleasedWhenClosed = false
+            settingsWindow?.center()
+            
+            // Apply glass styling
+            settingsWindow?.titlebarAppearsTransparent = true
+            settingsWindow?.backgroundColor = .clear
+            settingsWindow?.isOpaque = false
+        }
+        
+        settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
     
     @objc private func quitApp() {
