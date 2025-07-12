@@ -3,13 +3,13 @@
 ## ✅ Completed App Store Preparation Tasks
 
 ### 1. App Configuration & Metadata
-- ✅ **Bundle Identifier**: Updated to `Attach.MarkTo`
+- ✅ **Bundle Identifier**: Updated to `com.attachdesign.markto`
 - ✅ **App Name**: Renamed from "MarkToRTF" to "MarkTo"
 - ✅ **Version**: Set to 1.0
 - ✅ **Copyright**: Added "© 2025 Attach Design"
 
 ### 2. Info.plist Compliance
-- ✅ **CFBundleIdentifier**: `Attach.MarkTo`
+- ✅ **CFBundleIdentifier**: `com.attachdesign.markto`
 - ✅ **CFBundleName**: MarkTo
 - ✅ **CFBundleDisplayName**: MarkTo
 - ✅ **CFBundleVersion**: 1
@@ -62,7 +62,7 @@
 
 ### 1. App Store Connect Setup
 1. **Create App Record**:
-   - Bundle ID: `Attach.MarkTo`
+   - Bundle ID: `com.attachdesign.markto`
    - App Name: "MarkTo"
    - Category: Productivity
    - Age Rating: 4+ (No objectionable content)
