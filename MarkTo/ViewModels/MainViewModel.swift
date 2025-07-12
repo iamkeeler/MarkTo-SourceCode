@@ -69,10 +69,10 @@ class MainViewModel: ObservableObject {
     
     // MARK: - Private Methods
     
-    private func handleConversionResult(_ result: Result<String, MarkdownConversionError>, processingTime: TimeInterval) {
+    private func handleConversionResult(_ result: Result<NSAttributedString, MarkdownConversionError>, processingTime: TimeInterval) {
         switch result {
-        case .success(let rtfString):
-            copyToClipboard(rtfString)
+        case .success(let attributedString):
+            copyToClipboard(attributedString)
             let timeText = String(format: "%.0f", processingTime * 1000)
             showStatus("RTF copied to clipboard! (\(timeText)ms)", isSuccess: true)
         case .failure(let error):
@@ -97,31 +97,21 @@ class MainViewModel: ObservableObject {
         }
     }
     
-    private func copyToClipboard(_ rtfString: String) {
+    private func copyToClipboard(_ attributedString: NSAttributedString) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         
-        // Convert RTF string back to attributed string and then to RTF data
-        if let rtfData = rtfString.data(using: .utf8),
-           let attributedString = try? NSAttributedString(
-               data: rtfData,
-               options: [.documentType: NSAttributedString.DocumentType.rtf],
-               documentAttributes: nil
-           ) {
-            
-            // Set both RTF and plain text on clipboard
-            if let newRTFData = try? attributedString.data(
-                from: NSRange(location: 0, length: attributedString.length),
-                documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
-            ) {
-                pasteboard.setData(newRTFData, forType: .rtf)
-            }
-            
-            pasteboard.setString(attributedString.string, forType: .string)
-        } else {
-            // Fallback: just copy as plain text
-            pasteboard.setString(rtfString, forType: .string)
+        // Generate RTF data directly from the attributed string
+        if let rtfData = try? attributedString.data(
+            from: NSRange(location: 0, length: attributedString.length),
+            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
+        ) {
+            // Set RTF data on clipboard
+            pasteboard.setData(rtfData, forType: .rtf)
         }
+        
+        // Also set plain text version for compatibility
+        pasteboard.setString(attributedString.string, forType: .string)
     }
     
     private func showStatus(_ message: String, isSuccess: Bool) {
