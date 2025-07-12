@@ -7,10 +7,9 @@ struct MarkToApp: App {
     
     var body: some Scene {
         WindowGroup {
-            NavigationView {
-                ContentView()
-            }
-            .frame(width: 420, height: 380)
+            ContentView()
+                .navigationTitle("MarkTo")
+                .frame(width: 420, height: 380)
         }
         .windowResizability(.contentSize)
         

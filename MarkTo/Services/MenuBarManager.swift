@@ -162,9 +162,8 @@ class MenuBarManager: ObservableObject {
         }
         
         // If no window exists, create one with navigation support
-        let contentView = NavigationView {
-            ContentView()
-        }
+        let contentView = ContentView()
+            .navigationTitle("MarkTo")
         let hostingController = NSHostingController(rootView: contentView)
         let window = NSWindow(contentViewController: hostingController)
         window.title = "MarkTo"
@@ -176,9 +175,8 @@ class MenuBarManager: ObservableObject {
     
     @objc private func showSettings() {
         if settingsWindow == nil {
-            let settingsView = NavigationView {
-                SettingsView()
-            }
+            let settingsView = SettingsView()
+                .navigationTitle("Settings")
             let hostingController = NSHostingController(rootView: settingsView)
             
             settingsWindow = NSWindow(
