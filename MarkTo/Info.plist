@@ -11,7 +11,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0.0</string>
 	<key>CFBundleIdentifier</key>
-	<string>Attach.MarkTo</string>
+	<string>com.attachdesign.markto</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>LSUIElement</key>
