@@ -7,28 +7,28 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A100000129000000000000030 /* MenuBarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000129000000000000031 /* MenuBarManager.swift */; };
+		A100000129000000000000032 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000129000000000000033 /* SettingsView.swift */; };
 		A1000001290000000000001A /* MarkToRTFApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001290000000000001B /* MarkToRTFApp.swift */; };
 		A1000001290000000000001C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001290000000000001D /* ContentView.swift */; };
 		A1000001290000000000001E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000001290000000000001F /* Assets.xcassets */; };
 		A1000001290000000000002A /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000001290000000000002B /* Preview Assets.xcassets */; };
 		A1000001290000000000002C /* MainViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001290000000000002D /* MainViewModel.swift */; };
 		A1000001290000000000002E /* MarkdownConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001290000000000002F /* MarkdownConverter.swift */; };
-		A100000129000000000000030 /* MenuBarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000129000000000000031 /* MenuBarManager.swift */; };
-		A100000129000000000000032 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000129000000000000033 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A100000129000000000000018 /* MarkToRTF.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkToRTF.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A100000129000000000000031 /* MenuBarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarManager.swift; sourceTree = "<group>"; };
+		A100000129000000000000033 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A100000129000000000000034 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A100000129000000000000035 /* MarkToRTF.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MarkToRTF.entitlements; sourceTree = "<group>"; };
 		A1000001290000000000001B /* MarkToRTFApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkToRTFApp.swift; sourceTree = "<group>"; };
 		A1000001290000000000001D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1000001290000000000001F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1000001290000000000002B /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		A1000001290000000000002D /* MainViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewModel.swift; sourceTree = "<group>"; };
 		A1000001290000000000002F /* MarkdownConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownConverter.swift; sourceTree = "<group>"; };
-		A100000129000000000000031 /* MenuBarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarManager.swift; sourceTree = "<group>"; };
-		A100000129000000000000033 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		A100000129000000000000034 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A100000129000000000000035 /* MarkToRTF.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MarkToRTF.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -42,7 +42,7 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		A100000129000000000000014 /* */ = {
+		A100000129000000000000014 = {
 			isa = PBXGroup;
 			children = (
 				A100000129000000000000019 /* MarkToRTF */,
@@ -143,7 +143,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 1640;
 				TargetAttributes = {
 					A100000129000000000000015 = {
 						CreatedOnToolsVersion = 15.0;
@@ -158,7 +158,7 @@
 				en,
 				Base,
 			);
-			mainGroup = A100000129000000000000014 /* */;
+			mainGroup = A100000129000000000000014;
 			productRefGroup = A100000129000000000000017 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -231,6 +231,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -294,6 +295,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -324,6 +326,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"MarkToRTF/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -354,6 +357,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"MarkToRTF/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;

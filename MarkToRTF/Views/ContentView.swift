@@ -7,6 +7,12 @@ struct ContentView: View {
     @AppStorage("showCharacterCount") private var showCharacterCount: Bool = true
     @AppStorage("autoLoadClipboard") private var autoLoadClipboard: Bool = true
     
+    let showCloseButton: Bool
+    
+    init(showCloseButton: Bool = true) {
+        self.showCloseButton = showCloseButton
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -18,28 +24,30 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                Button(action: {
-                    if let window = NSApplication.shared.keyWindow {
-                        window.performClose(nil)
+                if showCloseButton {
+                    Button(action: {
+                        if let window = NSApplication.shared.keyWindow {
+                            window.performClose(nil)
+                        }
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
                     }
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(PlainButtonStyle())
-                .frame(width: 20, height: 20)
-                .background(
-                    Circle()
-                        .fill(Color.secondary.opacity(0.1))
-                        .opacity(isHovering ? 1 : 0)
-                )
-                .onHover { hovering in
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isHovering = hovering
+                    .buttonStyle(PlainButtonStyle())
+                    .frame(width: 20, height: 20)
+                    .background(
+                        Circle()
+                            .fill(Color.secondary.opacity(0.1))
+                            .opacity(isHovering ? 1 : 0)
+                    )
+                    .onHover { hovering in
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isHovering = hovering
+                        }
                     }
+                    .accessibilityLabel("Close window")
                 }
-                .accessibilityLabel("Close window")
             }
             .padding(.horizontal, 20)
             .padding(.top, 20)
@@ -137,5 +145,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(showCloseButton: true)
 }

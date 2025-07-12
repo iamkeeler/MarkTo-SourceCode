@@ -2,8 +2,22 @@ import Foundation
 import AppKit
 import SwiftUI
 
+// Custom window class that can become key and main
+class PopoverWindow: NSWindow {
+    override var canBecomeKey: Bool {
+        return true
+    }
+    
+    override var canBecomeMain: Bool {
+        return true
+    }
+}
+
 class MenuBarManager: ObservableObject {
     private var statusItem: NSStatusItem?
+    private var popoverWindow: NSWindow?
+    private var globalClickMonitor: Any?
+    private var localClickMonitor: Any?
     
     init() {
         setupMenuBar()
@@ -19,12 +33,21 @@ class MenuBarManager: ObservableObject {
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
-        
-        // Setup context menu for right-click
-        setupContextMenu()
     }
     
-    private func setupContextMenu() {
+    @objc private func statusItemClicked() {
+        guard let event = NSApp.currentEvent else { return }
+        
+        if event.type == .rightMouseUp {
+            // Right-click: show context menu
+            showContextMenu()
+        } else {
+            // Left-click: toggle dropdown window
+            toggleDropdownWindow()
+        }
+    }
+    
+    private func showContextMenu() {
         let menu = NSMenu()
         
         menu.addItem(NSMenuItem(title: "Show Main Window", action: #selector(showMainWindow), keyEquivalent: ""))
@@ -37,18 +60,88 @@ class MenuBarManager: ObservableObject {
             item.target = self
         }
         
-        statusItem?.menu = menu
+        guard let statusButton = statusItem?.button else { return }
+        statusButton.menu = menu
+        statusButton.performClick(nil)
+        statusButton.menu = nil
     }
     
-    @objc private func statusItemClicked() {
-        guard let event = NSApp.currentEvent else { return }
-        
-        if event.type == .rightMouseUp {
-            // Right-click: show context menu (handled automatically by statusItem.menu)
-            return
+    private func toggleDropdownWindow() {
+        if let window = popoverWindow, window.isVisible {
+            closeDropdownWindow()
         } else {
-            // Left-click: show main window
-            showMainWindow()
+            showDropdownWindow()
+        }
+    }
+    
+    private func closeDropdownWindow() {
+        popoverWindow?.orderOut(self)
+        popoverWindow = nil
+        
+        // Remove click monitors
+        if let monitor = globalClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalClickMonitor = nil
+        }
+        if let monitor = localClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            localClickMonitor = nil
+        }
+    }
+    
+    private func showDropdownWindow() {
+        guard let statusButton = statusItem?.button else { return }
+        
+        // Create the content view without close button for dropdown
+        let contentView = ContentView(showCloseButton: false)
+        let hostingController = NSHostingController(rootView: contentView)
+        
+        // Create the dropdown window using our custom window class
+        let window = PopoverWindow(contentViewController: hostingController)
+        window.styleMask = [.borderless]
+        window.backgroundColor = NSColor.controlBackgroundColor
+        window.hasShadow = true
+        window.level = .floating
+        window.setContentSize(NSSize(width: 400, height: 350))
+        
+        // Configure window for user interaction
+        window.acceptsMouseMovedEvents = true
+        window.ignoresMouseEvents = false
+        
+        // Position the window below the status item
+        let buttonFrame = statusButton.convert(statusButton.bounds, to: nil)
+        let screenFrame = statusButton.window?.convertToScreen(buttonFrame) ?? .zero
+        
+        let windowOrigin = NSPoint(
+            x: screenFrame.midX - window.frame.width / 2,
+            y: screenFrame.minY - window.frame.height - 5
+        )
+        
+        window.setFrameOrigin(windowOrigin)
+        window.makeKeyAndOrderFront(self)
+        
+        // Activate the app to ensure the window can receive input
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        
+        // Store reference to the window
+        popoverWindow = window
+        
+        // Add observers to close window when clicking outside
+        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            if let window = self?.popoverWindow {
+                let windowFrame = window.frame
+                let globalClickLocation = NSEvent.mouseLocation
+                
+                if !windowFrame.contains(globalClickLocation) {
+                    self?.closeDropdownWindow()
+                }
+            }
+        }
+        
+        // Add local monitor to handle clicks inside the window
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
+            // Return the event to allow normal processing within the window
+            return event
         }
     }
     
@@ -83,6 +176,7 @@ class MenuBarManager: ObservableObject {
     }
     
     deinit {
+        closeDropdownWindow()
         statusItem = nil
     }
 }
