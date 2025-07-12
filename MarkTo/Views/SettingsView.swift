@@ -5,211 +5,88 @@ struct SettingsView: View {
     @AppStorage("showCharacterCount") private var showCharacterCount: Bool = true
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Settings")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
+        Form {
+            Section {
+                // Font Size Setting
+                LabeledContent("Font Size") {
+                    HStack(spacing: 8) {
+                        Slider(value: $fontSize, in: 10...24, step: 1) {
+                            Text("Font Size")
+                        } minimumValueLabel: {
+                            Text("10")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } maximumValueLabel: {
+                            Text("24")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(width: 120)
+                        
+                        Text("\(Int(fontSize))pt")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(minWidth: 30, alignment: .trailing)
+                    }
+                }
+                .help("Adjust the editor font size")
                 
-                Text("Customize your MarkTo experience")
-                    .font(.subheadline)
+                // Character Count Setting
+                LabeledContent("Show Character Count") {
+                    Toggle("Show Character Count", isOn: $showCharacterCount)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                }
+                .help("Display character count in the editor")
+                
+            } header: {
+                Label("Editor", systemImage: "textformat")
+            } footer: {
+                Text("Customize your editing experience.")
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 20)
-            .padding(.bottom, 20)
-            .background(Color(NSColor.controlBackgroundColor), in: Rectangle())
             
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Editor Settings Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Label("Editor", systemImage: "textformat")
-                            .font(.headline)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.primary)
-                        
-                        VStack(spacing: 12) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Font Size")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                    Text("Adjust the editor font size")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                
-                                Spacer()
-                                
-                                HStack(spacing: 8) {
-                                    Text("\(Int(fontSize))")
-                                        .font(.caption.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                        .frame(width: 20)
-                                    
-                                    Slider(value: $fontSize, in: 10...24, step: 1)
-                                        .frame(width: 100)
-                                }
-                            }
-                            .padding(16)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .strokeBorder(.quaternary, lineWidth: 0.5)
-                            )
-                            
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Character Count")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                    Text("Show character count in editor")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                
-                                Spacer()
-                                
-                                Toggle("", isOn: $showCharacterCount)
-                                    .toggleStyle(.switch)
-                            }
-                            .padding(16)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .strokeBorder(.quaternary, lineWidth: 0.5)
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 24)
-                    
-                    // About Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Label("About", systemImage: "info.circle")
-                            .font(.headline)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.primary)
-                        
-                        VStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("MarkTo")
-                                            .font(.subheadline)
-                                            .fontWeight(.semibold)
-                                        Text("Version 1.0.0")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "doc.richtext")
-                                        .font(.title2)
-                                        .foregroundStyle(.blue)
-                                }
-                                
-                                Text("A lightweight macOS app for converting Markdown to Rich Text Format.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(nil)
-                            }
-                            .padding(16)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .strokeBorder(.quaternary, lineWidth: 0.5)
-                            )
-                            
-                            VStack(spacing: 8) {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Developer")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                        Text("Attach.design")
-                                            .font(.caption)
-                                            .foregroundStyle(.blue)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "person.circle")
-                                        .font(.title3)
-                                        .foregroundStyle(.blue)
-                                }
-                                .padding(16)
-                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .strokeBorder(.quaternary, lineWidth: 0.5)
-                                )
-                                
-                                Button(action: {
-                                    if let url = URL(string: "https://MarkTo.attach.design/privacy.html") {
-                                        NSWorkspace.shared.open(url)
-                                    }
-                                }) {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Privacy Policy")
-                                                .font(.subheadline)
-                                                .fontWeight(.medium)
-                                            Text("View our privacy policy")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        
-                                        Spacer()
-                                        
-                                        Image(systemName: "arrow.up.right")
-                                            .font(.caption)
-                                            .foregroundStyle(.blue)
-                                    }
-                                    .padding(16)
-                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .strokeBorder(.quaternary, lineWidth: 0.5)
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(.primary)
-                                
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Copyright")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                        Text("© 2025 Attach.design. All rights reserved.")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "c.circle")
-                                        .font(.title3)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .padding(16)
-                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .strokeBorder(.quaternary, lineWidth: 0.5)
-                                )
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 24)
+            Section {
+                // App Info
+                LabeledContent("Version") {
+                    Text("1.0.0")
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.bottom, 24)
+                
+                LabeledContent("Developer") {
+                    Text("Attach.design")
+                        .foregroundStyle(.secondary)
+                }
+                
+                LabeledContent("Copyright") {
+                    Text("© 2025 Attach.design")
+                        .foregroundStyle(.secondary)
+                }
+                
+                // Privacy Policy Link
+                LabeledContent("Privacy Policy") {
+                    Button("View Policy") {
+                        if let url = URL(string: "https://MarkTo.attach.design/privacy.html") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(.link)
+                    .controlSize(.small)
+                }
+                
+            } header: {
+                Label("About MarkTo", systemImage: "info.circle")
+            } footer: {
+                Text("A lightweight macOS app for converting Markdown to Rich Text Format.")
+                    .foregroundStyle(.secondary)
             }
         }
-        .background(Color(NSColor.windowBackgroundColor))
-        .frame(width: 450, height: 400)
+        .formStyle(.grouped)
+        .navigationTitle("Settings")
+        .frame(width: 500, height: 450)
     }
+}
+
+#Preview {
+    SettingsView()
 }
