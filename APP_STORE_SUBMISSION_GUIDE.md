@@ -7,7 +7,7 @@ Your MarkTo app has been prepared for Mac App Store submission with the followin
 ### 📋 **Requirements Met**
 
 #### 1. **Info.plist Configuration**
-- ✅ **Bundle Identifier**: `Attach.MarkTo` (registered domain)
+- ✅ **Bundle Identifier**: `com.attachdesign.markto` (registered domain)
 - ✅ **Version Numbers**: CFBundleVersion: "1", CFBundleShortVersionString: "1.0.0"
 - ✅ **App Category**: `public.app-category.productivity`
 - ✅ **Minimum System Version**: macOS 13.0
@@ -37,7 +37,7 @@ Your MarkTo app has been prepared for Mac App Store submission with the followin
 
 #### 1. **Apple Developer Account Setup**
 - Ensure you have an active Apple Developer Program membership
-- Register the bundle ID `Attach.MarkTo` in App Store Connect
+- Register the bundle ID `com.attachdesign.markto` in App Store Connect
 - Create app record in App Store Connect
 
 #### 2. **Code Signing & Provisioning**
