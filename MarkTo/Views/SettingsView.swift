@@ -104,9 +104,35 @@ struct SettingsView: View {
     @AppStorage("fontSize") private var fontSize: Double = 14
     @AppStorage("showCharacterCount") private var showCharacterCount: Bool = true
     @StateObject private var themeManager = ThemeManager()
+    @StateObject private var appSettings = AppPreferences()
     
     var body: some View {
         Form {
+            // MARK: - App Behavior Section
+            Section {
+                // Hide Dock Icon Setting
+                LabeledContent("Hide Dock Icon") {
+                    Toggle("Hide Dock Icon", isOn: $appSettings.hideDockIcon)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                }
+                .help("Hide MarkTo from the Dock (app will still be accessible from menu bar)")
+                
+                // Start at Login Setting
+                LabeledContent("Start at Login") {
+                    Toggle("Start at Login", isOn: $appSettings.startAtLogin)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                }
+                .help("Automatically start MarkTo when you log in to your Mac")
+                
+            } header: {
+                Label("App Behavior", systemImage: "gear")
+            } footer: {
+                Text("Configure how MarkTo behaves on your system.")
+                    .foregroundStyle(.secondary)
+            }
+            
             // MARK: - Appearance Section
             Section {
                 // Theme Selection
