@@ -8,8 +8,7 @@ struct MarkToRTFApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(showCloseButton: false)
-                .frame(width: 400, height: 350)
-                .background(Color(NSColor.windowBackgroundColor))
+                .frame(width: 420, height: 380)
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)

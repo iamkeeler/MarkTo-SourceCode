@@ -99,10 +99,11 @@ class MenuBarManager: ObservableObject {
         // Create the dropdown window using our custom window class
         let window = PopoverWindow(contentViewController: hostingController)
         window.styleMask = [.borderless]
-        window.backgroundColor = NSColor.controlBackgroundColor
+        window.backgroundColor = .clear
+        window.isOpaque = false
         window.hasShadow = true
         window.level = .floating
-        window.setContentSize(NSSize(width: 400, height: 350))
+        window.setContentSize(NSSize(width: 420, height: 380))
         
         // Configure window for user interaction
         window.acceptsMouseMovedEvents = true

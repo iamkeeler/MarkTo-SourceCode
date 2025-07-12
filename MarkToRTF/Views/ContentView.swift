@@ -15,12 +15,12 @@ struct ContentView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
+            // Header with glass effect
             HStack {
                 Text("MarkToRTF")
                     .font(.title2)
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
                 
                 Spacer()
                 
@@ -31,111 +31,137 @@ struct ContentView: View {
                         }
                     }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .frame(width: 20, height: 20)
-                    .background(
-                        Circle()
-                            .fill(Color.secondary.opacity(0.1))
-                            .opacity(isHovering ? 1 : 0)
-                    )
+                    .buttonStyle(.plain)
+                    .frame(width: 24, height: 24)
+                    .background(.quaternary, in: Circle())
+                    .scaleEffect(isHovering ? 1.1 : 1.0)
                     .onHover { hovering in
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             isHovering = hovering
                         }
                     }
                     .accessibilityLabel("Close window")
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-            .padding(.bottom, 10)
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+            .padding(.bottom, 16)
+            .background(.regularMaterial, in: Rectangle())
             
-            // Main content
-            VStack(spacing: 16) {
+            // Main content with glass background
+            VStack(spacing: 20) {
                 // Markdown input area
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("Markdown")
+                        Label("Markdown", systemImage: "text.alignleft")
                             .font(.subheadline)
                             .fontWeight(.medium)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                         
                         Spacer()
                         
                         if showCharacterCount {
-                            Text("\(viewModel.markdownText.count) characters")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            Text("\(viewModel.markdownText.count)")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.tertiary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.quaternary, in: Capsule())
                         }
                     }
                     
                     TextEditor(text: $viewModel.markdownText)
                         .font(.system(size: fontSize, design: .monospaced))
                         .scrollContentBackground(.hidden)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(8)
-                        .frame(minHeight: 200)
+                        .background(.clear)
+                        .frame(minHeight: 160)
+                        .padding(16)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 16)
+                                .strokeBorder(.quaternary, lineWidth: 0.5)
                         )
                         .accessibilityLabel("Markdown input text editor")
                 }
                 
-                // Convert button
+                // Convert button with glass effect
                 Button(action: {
                     viewModel.convertToRTF()
                 }) {
-                    HStack {
+                    HStack(spacing: 8) {
                         if viewModel.isConverting {
                             ProgressView()
                                 .scaleEffect(0.8)
-                                .frame(width: 16, height: 16)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         } else {
-                            Image(systemName: "doc.text")
-                                .font(.system(size: 14, weight: .medium))
+                            Image(systemName: "doc.text.fill")
+                                .font(.system(size: 16, weight: .medium))
                         }
                         
-                        Text(viewModel.isConverting ? "Converting..." : "Convert to RTF & Copy")
-                            .font(.system(size: 14, weight: .medium))
+                        Text(viewModel.isConverting ? "Converting..." : "Convert to RTF")
+                            .font(.system(size: 15, weight: .medium))
                     }
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 36)
+                    .frame(height: 44)
                     .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(viewModel.markdownText.isEmpty ? Color.gray : Color.blue)
+                        Group {
+                            if viewModel.markdownText.isEmpty {
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(.quaternary)
+                            } else {
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(.blue.gradient)
+                            }
+                        }
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .strokeBorder(.white.opacity(0.2), lineWidth: 0.5)
                     )
                 }
                 .disabled(viewModel.markdownText.isEmpty || viewModel.isConverting)
-                .buttonStyle(PlainButtonStyle())
+                .buttonStyle(.plain)
+                .scaleEffect(viewModel.isConverting ? 0.98 : 1.0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: viewModel.isConverting)
                 .accessibilityLabel(viewModel.isConverting ? "Converting markdown to RTF" : "Convert markdown to RTF and copy to clipboard")
                 .keyboardShortcut("r", modifiers: .command)
                 
-                // Status message
+                // Status message with glass background
                 if !viewModel.statusMessage.isEmpty {
-                    HStack {
-                        Image(systemName: viewModel.isSuccess ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                            .foregroundColor(viewModel.isSuccess ? .green : .red)
-                            .font(.system(size: 14))
+                    HStack(spacing: 8) {
+                        Image(systemName: viewModel.isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(viewModel.isSuccess ? .green : .orange)
+                            .font(.system(size: 16, weight: .medium))
                         
                         Text(viewModel.statusMessage)
-                            .font(.caption)
-                            .foregroundColor(viewModel.isSuccess ? .green : .red)
+                            .font(.subheadline)
+                            .foregroundStyle(viewModel.isSuccess ? .green : .orange)
                         
                         Spacer()
                     }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(viewModel.isSuccess ? .green.opacity(0.3) : .orange.opacity(0.3), lineWidth: 1)
+                    )
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.8).combined(with: .opacity),
+                        removal: .scale(scale: 0.9).combined(with: .opacity)
+                    ))
                     .accessibilityLabel("Status: \(viewModel.statusMessage)")
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
         }
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
         .onAppear {
             if autoLoadClipboard {
                 viewModel.loadClipboardContent()
