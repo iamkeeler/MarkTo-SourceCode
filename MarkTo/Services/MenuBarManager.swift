@@ -96,8 +96,8 @@ class MenuBarManager: ObservableObject {
     private func showDropdownWindow() {
         guard let statusButton = statusItem?.button else { return }
         
-        // Create the content view without close button for dropdown
-        let contentView = ContentView(showCloseButton: false)
+        // Create the content view for dropdown (keep borderless style)
+        let contentView = ContentView()
         let hostingController = NSHostingController(rootView: contentView)
         
         // Create the dropdown window using our custom window class
@@ -107,7 +107,7 @@ class MenuBarManager: ObservableObject {
         window.isOpaque = false
         window.hasShadow = true
         window.level = .floating
-        window.setContentSize(NSSize(width: 420, height: 380))
+        window.setContentSize(NSSize(width: 420, height: 420))
         
         // Configure window for user interaction
         window.acceptsMouseMovedEvents = true
@@ -161,20 +161,24 @@ class MenuBarManager: ObservableObject {
             }
         }
         
-        // If no window exists, create one
-        let contentView = ContentView(showCloseButton: false)
+        // If no window exists, create one with navigation support
+        let contentView = NavigationView {
+            ContentView()
+        }
         let hostingController = NSHostingController(rootView: contentView)
         let window = NSWindow(contentViewController: hostingController)
         window.title = "MarkTo"
-        window.setContentSize(NSSize(width: 400, height: 350))
-        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.setContentSize(NSSize(width: 400, height: 380))
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.center()
         window.makeKeyAndOrderFront(self)
     }
     
     @objc private func showSettings() {
         if settingsWindow == nil {
-            let settingsView = SettingsView()
+            let settingsView = NavigationView {
+                SettingsView()
+            }
             let hostingController = NSHostingController(rootView: settingsView)
             
             settingsWindow = NSWindow(

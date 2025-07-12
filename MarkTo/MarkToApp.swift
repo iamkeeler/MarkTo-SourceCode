@@ -7,10 +7,11 @@ struct MarkToApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView(showCloseButton: false)
-                .frame(width: 420, height: 380)
+            NavigationView {
+                ContentView()
+            }
+            .frame(width: 420, height: 380)
         }
-        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         
         Settings {
