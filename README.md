@@ -1,104 +1,158 @@
 # MarkTo
 
-A lightweight native macOS application for converting Markdown to RTF (Rich Text Format).
+<div align="center">
+  <img src="MarkTo/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" alt="MarkTo Icon" width="128" height="128">
+  
+  **A lightweight, native macOS application for converting Markdown to Rich Text Format (RTF)**
+  
+  [![macOS](https://img.shields.io/badge/macOS-13.0+-blue.svg)](https://www.apple.com/macos/)
+  [![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
+  [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+  
+  [Download from App Store](#app-store) • [Features](#features) • [Privacy](#privacy) • [Support](#support)
+</div>
 
-## ✅ **Code Review & Architecture Improvements Completed**
+## About MarkTo
 
-### **🔧 Fixed Issues:**
-1. **✅ Dock Icon Visibility** - Changed `LSUIElement` to `false` to show app in dock
-2. **✅ Menu Bar Conflicts** - Fixed left/right-click handling in MenuBarManager
-3. **✅ Error Handling** - Enhanced with proper error types and user feedback
-4. **✅ Performance** - Optimized string parsing with NSScanner
-5. **✅ Accessibility** - Added VoiceOver support and keyboard shortcuts
-6. **✅ Memory Management** - Proper cleanup and Combine integration
-7. **✅ MVVM Adherence** - Better separation of concerns
+MarkTo is designed for users who frequently work with Markdown and need a quick, reliable way to convert it to Rich Text Format (RTF). Whether you're preparing content for applications that don't support Markdown or need to maintain formatting when copying text, MarkTo provides a seamless, native macOS experience.
 
-### **🏗️ Architecture Enhancements:**
-- **Model**: Enhanced `MarkdownConverter` with robust error handling
-- **View**: Improved `ContentView` with accessibility and animations
-- **ViewModel**: Advanced `MainViewModel` with Combine and async processing
-- **Services**: Refined `MenuBarManager` with dual-mode operation
-- **Settings**: New `SettingsView` for user customization
+## ✨ Features
 
-### **⚡ Performance Optimizations:**
-- **NSScanner-based parsing** for 3x faster conversion
-- **Background processing** to prevent UI blocking
-- **Debounced text changes** to reduce unnecessary processing
-- **Memory-efficient clipboard handling**
+### � **Core Functionality**
+- **Instant Conversion**: Convert Markdown to RTF with a single click or keyboard shortcut (⌘R)
+- **Clipboard Integration**: Automatically copies converted RTF to clipboard for immediate use
+- **Real-time Preview**: See your formatting as you type with syntax highlighting
+- **Menu Bar Access**: Quick access from menu bar without cluttering your dock
 
-## Features
+### 📝 **Markdown Support**
+- **Headers**: All levels (`# H1` through `#### H4`)
+- **Text Formatting**: Bold (`**text**`), Italic (`*text*`), Inline Code (`` `code` ``)
+- **Lists**: Unordered (`-`, `*`, `+`) and ordered (`1.`, `2.`, etc.)
+- **Code Blocks**: Fenced code blocks with ``` syntax
+- **Paragraphs**: Proper paragraph spacing and formatting
 
-- **Menu Bar Integration**: Access the app from menu bar or dock
-- **Markdown Input**: Clean, distraction-free text editor with customizable font size
-- **RTF Conversion**: Converts Markdown to RTF and copies to clipboard
-- **Settings Panel**: Customize font size, character count, auto-clipboard loading
-- **Dual Interface**: Both menu bar dropdown and standalone window modes
-- **Accessibility**: Full VoiceOver support and keyboard shortcuts (⌘R to convert)
+### ⚙️ **Customization**
+- **Rich Text Formatting**: Customize fonts, sizes, and styles for each Markdown element
+- **Font Size Control**: Adjustable editor font size (10-24pt)
+- **Character Count**: Optional character counter
+- **Dual Interface**: Choose between menu bar dropdown or standalone window
 
-## Supported Markdown Features
+### 🎨 **User Experience**
+- **Native macOS Design**: Follows macOS Human Interface Guidelines
+- **Accessibility**: Full VoiceOver support and keyboard navigation
+- **Performance**: Lightning-fast conversion (< 50ms for typical documents)
+- **Memory Efficient**: < 8MB footprint, < 0.1% CPU when idle
 
-- **Headers**: `# H1`, `## H2`, `### H3`, `#### H4`
-- **Bold Text**: `**bold**`
-- **Italic Text**: `*italic*`
-- **Inline Code**: `code`
-- **Lists**: `- item`, `* item`, `+ item`
-- **Numbered Lists**: `1. item`
-- **Code Blocks**: ```code```
+## 🔒 Privacy
 
-## Requirements
+MarkTo is built with privacy as a core principle:
 
+- **No Network Access**: All processing happens locally on your Mac
+- **No Data Collection**: We don't collect, store, or transmit any of your data
+- **No Analytics**: No tracking, telemetry, or usage analytics
+- **Sandboxed**: Runs in Apple's security sandbox for maximum protection
+- **Open Source**: Code is publicly available for review and transparency
+
+Your Markdown content never leaves your device. MarkTo only accesses:
+- **Clipboard**: To copy converted RTF (with your explicit action)
+- **User Preferences**: To save your settings locally
+
+## 📱 App Store
+
+*Coming Soon to the Mac App Store*
+
+For early access and development updates, you can build from source (see [Building](#building) section).
+
+## 🛠 Building from Source
+
+### Requirements
 - macOS 13.0 or later
-- Xcode 15.0 or later (for building)
+- Xcode 15.0 or later
+- Valid Apple Developer account (for running on your device)
 
-## Building
+### Steps
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/iamkeeler/MarkToRTF.git
+   cd MarkToRTF
+   ```
 
-1. Open `MarkToRTF.xcodeproj` in Xcode
-2. Select your development team in the project settings
-3. Build and run the project (⌘R)
+2. Open `MarkTo.xcodeproj` in Xcode
 
-## Usage
+3. Select your development team in Project Settings → Signing & Capabilities
 
-### Dock Mode:
-1. Launch the app from Applications or dock
+4. Build and run (⌘R)
+
+## 🚀 Usage
+
+### Quick Start
+1. Launch MarkTo from Applications or menu bar
 2. Type or paste your Markdown content
 3. Click "Convert to RTF & Copy" or press ⌘R
-4. Paste RTF content into any RTF-compatible application
+4. Paste into any RTF-compatible application (Pages, Word, etc.)
 
-### Menu Bar Mode:
-1. Click the document icon in your menu bar
-2. Use the same conversion process
-3. Right-click menu bar icon for additional options
+### Menu Bar Mode
+- Click the MarkTo icon in your menu bar for quick access
+- Right-click for settings and preferences
+- Perfect for quick conversions without opening a full window
 
-## Architecture
+### Formatting Customization
+- Access **Settings** → **Rich Text Formatting**
+- Customize fonts, sizes, and styles for each Markdown element
+- Preview changes in real-time
 
-The app follows enhanced MVVM (Model-View-ViewModel) pattern:
+## 🏗 Architecture
 
-- **Model**: `MarkdownConverter` - Advanced markdown parsing with error handling
-- **View**: `ContentView`, `SettingsView` - SwiftUI interfaces with accessibility
-- **ViewModel**: `MainViewModel` - State management with Combine framework
-- **Services**: `MenuBarManager` - Dual-mode menu bar and window management
+MarkTo follows modern iOS/macOS development best practices:
 
-## Testing
+- **MVVM Pattern**: Clean separation between UI and business logic
+- **SwiftUI**: Native, declarative user interface
+- **Combine Framework**: Reactive programming for smooth performance
+- **AppKit Integration**: Native macOS menu bar functionality
+- **Accessibility First**: Built-in support for VoiceOver and assistive technologies
 
-Unit tests included for core conversion functionality:
-- Empty input validation
-- Markdown syntax detection
-- Performance benchmarks (< 100ms for typical documents)
+## 📊 Performance
 
-## Performance Metrics
-
-- **Idle CPU Usage**: < 0.1%
-- **Memory Footprint**: < 8MB
 - **Conversion Speed**: < 50ms for typical documents
-- **Native macOS Integration**: Optimal performance and battery life
+- **Memory Usage**: < 8MB footprint
+- **CPU Usage**: < 0.1% when idle
+- **Battery Impact**: Minimal - designed for all-day use
 
-## Settings
+## 🤝 Contributing
 
-Customize the app behavior:
-- **Font Size**: 10-24pt for editor
-- **Character Count**: Show/hide character counter
-- **Auto-load Clipboard**: Automatically detect and load markdown from clipboard
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-## License
+### Development Setup
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-MIT License - See LICENSE file for details
+## 📞 Support
+
+### Get Help
+- **Documentation**: Check our [Wiki](../../wiki) for detailed guides
+- **Issues**: Report bugs or request features via [GitHub Issues](../../issues)
+- **Discussions**: Join our [GitHub Discussions](../../discussions) for questions and tips
+
+### Developer Contact
+- **Developer**: Gary Keeler
+- **GitHub**: [@iamkeeler](https://github.com/iamkeeler)
+- **Website**: [attachdesign.com](https://attachdesign.com)
+- **Email**: [Support Email](mailto:support@attachdesign.com)
+
+## 📄 License
+
+MarkTo is released under the MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+  <p>Made with ❤️ for the Markdown community</p>
+  <p>
+    <a href="#top">Back to Top</a> •
+    <a href="../../issues">Report Issue</a> •
+    <a href="../../discussions">Ask Question</a>
+  </p>
+</div>

@@ -57,6 +57,7 @@ class MarkdownConverter {
         var codeBlockLanguage: String? = nil
         
         var i = 0
+        var previousLineWasList = false // Track if the previous line was a list item
         while i < lines.count {
             let line = lines[i]
             let trimmedLine = line.trimmingCharacters(in: .whitespaces)
@@ -122,6 +123,9 @@ class MarkdownConverter {
             attributedString.append(lineString)
             attributedString.append(NSAttributedString(string: "\n"))
             i += 1
+            
+            // Check if the current line is a list continuation
+            previousLineWasList = isListContinuation(trimmedLine, previousWasList: previousLineWasList)
         }
         
         return attributedString
@@ -143,24 +147,27 @@ class MarkdownConverter {
         }
         // Unordered lists with nested support
         else if let listMatch = trimmedLine.range(of: #"^(\s*)([-*+])\s+"#, options: .regularExpression) {
-            let indentLevel = String(trimmedLine[listMatch]).filter { $0 == " " }.count / 2
+            let prefix = String(trimmedLine[..<listMatch.upperBound])
+            let indentLevel = calculateIndentLevel(prefix)
             let text = String(trimmedLine[listMatch.upperBound...])
             return createUnorderedListItem(text, level: indentLevel, baseFont: baseFont, codeFont: codeFont)
         }
         // Ordered lists with nested support
         else if let numberMatch = trimmedLine.range(of: #"^(\s*)(\d+)\.\s+"#, options: .regularExpression) {
-            let prefix = String(trimmedLine[numberMatch])
-            let indentLevel = prefix.filter { $0 == " " }.count / 2
-            let number = prefix.trimmingCharacters(in: .whitespaces)
+            let prefix = String(trimmedLine[..<numberMatch.upperBound])
+            let indentLevel = calculateIndentLevel(prefix)
+            let number = String(trimmedLine[numberMatch]).trimmingCharacters(in: .whitespaces).dropLast() // Remove the dot
             let text = String(trimmedLine[numberMatch.upperBound...])
-            return createOrderedListItem(text, number: number, level: indentLevel, baseFont: baseFont, codeFont: codeFont)
+            return createOrderedListItem(text, number: String(number), level: indentLevel, baseFont: baseFont, codeFont: codeFont)
         }
-        // Task lists (- [x] or - [ ])
+        // Task lists (- [x] or - [ ]) with nested support
         else if let taskMatch = trimmedLine.range(of: #"^(\s*)([-*+])\s*\[([ xX])\]\s+"#, options: .regularExpression) {
+            let prefix = String(trimmedLine[..<taskMatch.upperBound])
+            let indentLevel = calculateIndentLevel(prefix)
             let checkbox = String(trimmedLine[taskMatch])
             let isChecked = checkbox.contains("x") || checkbox.contains("X")
             let text = String(trimmedLine[taskMatch.upperBound...])
-            return createTaskListItem(text, isChecked: isChecked, baseFont: baseFont, codeFont: codeFont)
+            return createTaskListItem(text, isChecked: isChecked, level: indentLevel, baseFont: baseFont, codeFont: codeFont)
         }
         // Definition lists (: definition)
         else if trimmedLine.hasPrefix(": ") {
@@ -398,31 +405,54 @@ class MarkdownConverter {
     }
     
     private func createUnorderedListItem(_ text: String, level: Int, baseFont: NSFont, codeFont: NSFont) -> NSAttributedString {
-        let indent = String(repeating: "    ", count: level)
-        let bullet = level % 2 == 0 ? "• " : "◦ "
+        let bullet = getListBulletStyle(for: level)
         
-        let result = NSMutableAttributedString(string: indent + bullet)
+        let result = NSMutableAttributedString(string: bullet)
         result.addAttributes([.font: baseFont], range: NSRange(location: 0, length: result.length))
         
         let content = parseInlineMarkdown(text, baseFont: baseFont, codeFont: codeFont)
         result.append(content)
+        
+        // Apply proper paragraph style with hanging indent
+        let paragraphStyle = NSMutableParagraphStyle()
+        let baseIndent: CGFloat = 20.0 // Base indent per level
+        let hangingIndent: CGFloat = 15.0 // Space for bullet
+        
+        paragraphStyle.firstLineHeadIndent = CGFloat(level) * baseIndent
+        paragraphStyle.headIndent = CGFloat(level) * baseIndent + hangingIndent
+        paragraphStyle.tailIndent = 0
+        paragraphStyle.paragraphSpacing = 2.0
+        
+        result.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: result.length))
         
         return result
     }
     
     private func createOrderedListItem(_ text: String, number: String, level: Int, baseFont: NSFont, codeFont: NSFont) -> NSAttributedString {
-        let indent = String(repeating: "    ", count: level)
+        let numberText = "\(number). "
         
-        let result = NSMutableAttributedString(string: indent + number + " ")
+        let result = NSMutableAttributedString(string: numberText)
         result.addAttributes([.font: baseFont], range: NSRange(location: 0, length: result.length))
         
         let content = parseInlineMarkdown(text, baseFont: baseFont, codeFont: codeFont)
         result.append(content)
         
+        // Apply proper paragraph style with hanging indent
+        let paragraphStyle = NSMutableParagraphStyle()
+        let baseIndent: CGFloat = 20.0 // Base indent per level
+        let hangingIndent: CGFloat = 20.0 // Space for numbers (wider than bullets)
+        
+        paragraphStyle.firstLineHeadIndent = CGFloat(level) * baseIndent
+        paragraphStyle.headIndent = CGFloat(level) * baseIndent + hangingIndent
+        paragraphStyle.tailIndent = 0
+        paragraphStyle.paragraphSpacing = 2.0
+        
+        result.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: result.length))
+        
         return result
     }
     
-    private func createTaskListItem(_ text: String, isChecked: Bool, baseFont: NSFont, codeFont: NSFont) -> NSAttributedString {
+    private func createTaskListItem(_ text: String, isChecked: Bool, level: Int, baseFont: NSFont, codeFont: NSFont) -> NSAttributedString {
         let checkbox = isChecked ? "☑ " : "☐ "
         
         let result = NSMutableAttributedString(string: checkbox)
@@ -436,6 +466,18 @@ class MarkdownConverter {
             mutableContent.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: NSRange(location: 0, length: mutableContent.length))
         }
         result.append(mutableContent)
+        
+        // Apply proper paragraph style with hanging indent and level-based indentation
+        let paragraphStyle = NSMutableParagraphStyle()
+        let baseIndent: CGFloat = 20.0 // Base indent per level
+        let hangingIndent: CGFloat = 15.0 // Space for checkbox
+        
+        paragraphStyle.firstLineHeadIndent = CGFloat(level) * baseIndent
+        paragraphStyle.headIndent = CGFloat(level) * baseIndent + hangingIndent
+        paragraphStyle.tailIndent = 0
+        paragraphStyle.paragraphSpacing = 2.0
+        
+        result.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: result.length))
         
         return result
     }
@@ -523,6 +565,105 @@ class MarkdownConverter {
         }
         
         return (result, currentIndex)
+    }
+    
+    // MARK: - List Processing Helpers
+    
+    private func calculateIndentLevel(_ prefix: String) -> Int {
+        // Count leading whitespace - support both spaces and tabs
+        // Standard Markdown: 4 spaces = 1 level, 1 tab = 1 level
+        let spaces = prefix.filter { $0 == " " }.count
+        let tabs = prefix.filter { $0 == "\t" }.count
+        
+        // Calculate indent level: 4 spaces or 1 tab per level
+        let spaceLevel = spaces / 4
+        let tabLevel = tabs
+        
+        return max(spaceLevel, tabLevel)
+    }
+    
+    private func getListBulletStyle(for level: Int) -> String {
+        // Use different bullet styles for different nesting levels
+        let bullets = ["• ", "◦ ", "▪ ", "▫ "]
+        return bullets[level % bullets.count]
+    }
+    
+    private func isListContinuation(_ line: String, previousWasList: Bool) -> Bool {
+        if !previousWasList { return false }
+        
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        
+        // Empty lines are allowed in lists
+        if trimmed.isEmpty { return true }
+        
+        // Lines that start with whitespace and aren't new list items are continuations
+        if line.hasPrefix(" ") || line.hasPrefix("\t") {
+            // Make sure it's not a new list item
+            let isNewList = trimmed.range(of: #"^([-*+]|\d+\.)\s"#, options: .regularExpression) != nil
+            let isTaskList = trimmed.range(of: #"^([-*+])\s*\[([ xX])\]\s"#, options: .regularExpression) != nil
+            
+            return !isNewList && !isTaskList
+        }
+        
+        return false
+    }
+    
+    private func createListContinuation(_ text: String, level: Int, baseFont: NSFont, codeFont: NSFont) -> NSAttributedString {
+        let content = parseInlineMarkdown(text.trimmingCharacters(in: .whitespaces), baseFont: baseFont, codeFont: codeFont)
+        let result = NSMutableAttributedString(attributedString: content)
+        
+        // Apply paragraph style that continues the list indentation
+        let paragraphStyle = NSMutableParagraphStyle()
+        let baseIndent: CGFloat = 20.0
+        let hangingIndent: CGFloat = 15.0
+        
+        paragraphStyle.firstLineHeadIndent = CGFloat(level) * baseIndent + hangingIndent
+        paragraphStyle.headIndent = CGFloat(level) * baseIndent + hangingIndent
+        paragraphStyle.tailIndent = 0
+        paragraphStyle.paragraphSpacing = 2.0
+        
+        result.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: result.length))
+        
+        return result
+    }
+    
+    private func isListItem(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        
+        // Check for unordered list
+        if trimmed.range(of: #"^(\s*)([-*+])\s+"#, options: .regularExpression) != nil {
+            return true
+        }
+        
+        // Check for ordered list
+        if trimmed.range(of: #"^(\s*)(\d+)\.\s+"#, options: .regularExpression) != nil {
+            return true
+        }
+        
+        // Check for task list
+        if trimmed.range(of: #"^(\s*)([-*+])\s*\[([ xX])\]\s+"#, options: .regularExpression) != nil {
+            return true
+        }
+        
+        return false
+    }
+    
+    private func getListLevel(_ line: String) -> Int {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        
+        // Find the list marker and calculate indent level
+        if let match = trimmed.range(of: #"^(\s*)([-*+]|\d+\.)\s+"#, options: .regularExpression) {
+            let prefix = String(trimmed[..<match.upperBound])
+            return calculateIndentLevel(prefix)
+        }
+        
+        // For task lists
+        if let match = trimmed.range(of: #"^(\s*)([-*+])\s*\[([ xX])\]\s+"#, options: .regularExpression) {
+            let prefix = String(trimmed[..<match.upperBound])
+            return calculateIndentLevel(prefix)
+        }
+        
+        return 0
     }
 }
 
