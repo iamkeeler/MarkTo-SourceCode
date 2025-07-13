@@ -8,12 +8,39 @@ struct FormattingCustomizationView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            headerSection
+            // Compact Header
+            HStack {
+                Button(action: {
+                    dismiss()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .medium))
+                        Text("Back")
+                            .font(.system(size: 13))
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.accentColor)
+                
+                Text("Rich Text Formatting")
+                    .font(.title3)
+                    .fontWeight(.medium)
+                    .padding(.leading, 12)
+                
+                Spacer()
+                
+                Button("Reset All", role: .destructive) {
+                    viewModel.resetAllFormatting()
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(Color(NSColor.controlBackgroundColor))
             
             Divider()
             
-            // Main Content
             HStack(spacing: 0) {
                 // Sidebar
                 sidebarContent
@@ -25,6 +52,8 @@ struct FormattingCustomizationView: View {
             }
         }
         .frame(minWidth: 750, minHeight: 500)
+        .navigationTitle("")
+        .toolbar(.hidden)
         .alert("Reset Element", isPresented: $viewModel.showResetAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Reset", role: .destructive) {
@@ -33,30 +62,6 @@ struct FormattingCustomizationView: View {
         } message: {
             Text("Reset \(viewModel.selectedElement.displayName) to default formatting?")
         }
-    }
-    
-    // MARK: - Header Section
-    private var headerSection: some View {
-        HStack {
-            Text("Rich Text Formatting")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            Spacer()
-            
-            HStack(spacing: 12) {
-                Button("Reset All", role: .destructive) {
-                    viewModel.resetAllFormatting()
-                }
-                .buttonStyle(.bordered)
-                
-                Button("Done") {
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding()
     }
     
     // MARK: - Sidebar Content
