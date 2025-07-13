@@ -175,9 +175,7 @@ class MenuBarManager: ObservableObject {
     
     @objc private func showSettings() {
         if settingsWindow == nil {
-            let settingsView = NavigationStack {
-                SettingsView()
-            }
+            let settingsView = SettingsView()
             let hostingController = NSHostingController(rootView: settingsView)
             
             settingsWindow = NSWindow(

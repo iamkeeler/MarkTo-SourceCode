@@ -45,11 +45,6 @@ struct FormattingCustomizationView: View {
             Spacer()
             
             HStack(spacing: 12) {
-                Button("Export Settings") {
-                    exportSettings()
-                }
-                .buttonStyle(.bordered)
-                
                 Button("Reset All", role: .destructive) {
                     viewModel.resetAllFormatting()
                 }
@@ -587,13 +582,6 @@ struct FormattingCustomizationView: View {
         case .inline: return "textformat"
         case .blocks: return "square.stack"
         }
-    }
-    
-    private func exportSettings() {
-        let exportText = viewModel.exportFormatting()
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(exportText, forType: .string)
     }
 }
 
