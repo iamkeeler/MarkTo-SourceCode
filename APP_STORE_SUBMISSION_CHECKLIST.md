@@ -5,7 +5,7 @@
 ### 1. App Configuration & Metadata
 - ✅ **Bundle Identifier**: Updated to `com.attachdesign.markto`
 - ✅ **App Name**: Renamed from "MarkToRTF" to "MarkTo"
-- ✅ **Version**: Set to 1.0
+- ✅ **Version**: Set to 1.0.1
 - ✅ **Copyright**: Added "© 2025 Attach Design"
 
 ### 2. Info.plist Compliance
@@ -13,7 +13,7 @@
 - ✅ **CFBundleName**: MarkTo
 - ✅ **CFBundleDisplayName**: MarkTo
 - ✅ **CFBundleVersion**: 1
-- ✅ **CFBundleShortVersionString**: 1.0
+- ✅ **CFBundleShortVersionString**: 1.0.1
 - ✅ **LSMinimumSystemVersion**: 13.0
 - ✅ **LSUIElement**: true (menu bar app)
 - ✅ **NSHumanReadableCopyright**: © 2025 Attach Design
@@ -120,7 +120,7 @@ xcodebuild -exportArchive -archivePath ./MarkTo.xcarchive -exportPath ./AppStore
 **Developer**: Attach Design
 **Privacy Policy**: See `PRIVACY_POLICY.md`
 **Contact**: [Your support email]
-**Version**: 1.0 (Initial Release)
+**Version**: 1.0.1 (Bug fixes and improvements)
 
 ---
 

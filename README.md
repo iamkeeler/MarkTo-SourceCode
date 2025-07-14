@@ -1,15 +1,16 @@
 # MarkTo
 
 <div align="center">
-  <img src="MarkTo/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" alt="MarkTo Icon" width="128" height="128">
+  <img src="MarkTo/Assets.xcassets/AppIcon.appiconset/MarkTo_icn_V2_256.png" alt="MarkTo Icon" width="128" height="128">
   
   **A lightweight, native macOS application for converting Markdown to Rich Text Format (RTF)**
   
   [![macOS](https://img.shields.io/badge/macOS-13.0+-blue.svg)](https://www.apple.com/macos/)
   [![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
-  [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+  [![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](License/LICENSE)
+  [![GitHub Release](https://img.shields.io/github/v/release/iamkeeler/MarkTo-SourceCode?include_prereleases)](https://github.com/iamkeeler/MarkTo-SourceCode/releases)
+  [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
   
-  [Download from App Store](#app-store) • [Features](#features) • [Privacy](#privacy) • [Support](#support)
 </div>
 
 ## About MarkTo
@@ -50,7 +51,6 @@ MarkTo is built with privacy as a core principle:
 - **No Network Access**: All processing happens locally on your Mac
 - **No Data Collection**: We don't collect, store, or transmit any of your data
 - **No Analytics**: No tracking, telemetry, or usage analytics
-- **Sandboxed**: Runs in Apple's security sandbox for maximum protection
 - **Open Source**: Code is publicly available for review and transparency
 
 Your Markdown content never leaves your device. MarkTo only accesses:
@@ -61,27 +61,17 @@ Your Markdown content never leaves your device. MarkTo only accesses:
 
 *Coming Soon to the Mac App Store*
 
-For early access and development updates, you can build from source (see [Building](#building) section).
+## 🗺 Roadmap
 
-## 🛠 Building from Source
+### Current Version (1.0.1)
+- ✅ Core Markdown to RTF conversion
+- ✅ Menu bar integration
+- ✅ Customizable formatting
+- ✅ Privacy-focused design
 
-### Requirements
-- macOS 13.0 or later
-- Xcode 15.0 or later
-- Valid Apple Developer account (for running on your device)
-
-### Steps
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/iamkeeler/MarkToRTF.git
-   cd MarkToRTF
-   ```
-
-2. Open `MarkTo.xcodeproj` in Xcode
-
-3. Select your development team in Project Settings → Signing & Capabilities
-
-4. Build and run (⌘R)
+### Planned Features
+- 🔄 Export to additional formats (HTML, PDF, Word)
+- 📊 Enhanced Markdown syntax support (tables, footnotes)
 
 ## 🚀 Usage
 
@@ -118,41 +108,66 @@ MarkTo follows modern iOS/macOS development best practices:
 - **CPU Usage**: < 0.1% when idle
 - **Battery Impact**: Minimal - designed for all-day use
 
+## 🔧 Building from Source
+
+### Prerequisites
+- macOS 13.0 or later
+- Xcode 15.0 or later
+- Swift 5.9 or later
+
+### Build Instructions
+```bash
+# Clone the repository
+git clone https://github.com/iamkeeler/MarkTo-SourceCode.git
+cd MarkTo-SourceCode
+
+# Open in Xcode
+open MarkTo.xcodeproj
+
+# Build and run (⌘R in Xcode)
+# Or from command line:
+xcodebuild -project MarkTo.xcodeproj -scheme MarkTo -configuration Release build
+```
+
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! MarkTo is open source and we'd love your help making it better.
 
-### Development Setup
+Please read our [Contributing Guide](CONTRIBUTING.md) for detailed information about the development process, code style, and how to submit pull requests.
+
+### Quick Start for Contributors
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+4. Commit your changes (`git commit -m 'Add some amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
 
-## 📞 Support
-
-### Get Help
-- **Documentation**: Check our [Wiki](../../wiki) for detailed guides
-- **Issues**: Report bugs or request features via [GitHub Issues](../../issues)
-- **Discussions**: Join our [GitHub Discussions](../../discussions) for questions and tips
+### Types of Contributions
+- 🐛 Bug fixes
+- ✨ New features
+- 📚 Documentation improvements
+- 🎨 UI/UX enhancements
+- 🧪 Tests
+- 🌐 Internationalization
 
 ### Developer Contact
 - **Developer**: Gary Keeler
 - **GitHub**: [@iamkeeler](https://github.com/iamkeeler)
-- **Website**: [attachdesign.com](https://attachdesign.com)
-- **Email**: [Support Email](mailto:support@attachdesign.com)
+- **Website**: [attach.design](https://attach.design)
+- **Email**: [gary@attach.design](mailto:gary@attach.design)
 
 ## 📄 License
 
-MarkTo is released under the MIT License. See [LICENSE](LICENSE) for details.
+MarkTo is released under the Creative Commons Attribution-NonCommercial 4.0 International License. See [LICENSE](License/LICENSE) for details.
 
----
+This means you are free to:
+- ✅ **Use** the software for personal and non-commercial purposes
+- ✅ **Modify** and adapt the code for your needs
+- ✅ **Share** the software and your modifications
+- ❌ **Sell** or use commercially without permission
 
-<div align="center">
-  <p>Made with ❤️ for the Markdown community</p>
-  <p>
-    <a href="#top">Back to Top</a> •
-    <a href="../../issues">Report Issue</a> •
-    <a href="../../discussions">Ask Question</a>
-  </p>
-</div>
+For commercial licensing, please contact [gary@attach.design](mailto:gary@attach.design).
+
+This project welcomes contributions from the community!
+

@@ -8,7 +8,7 @@ Your MarkTo app has been prepared for Mac App Store submission with the followin
 
 #### 1. **Info.plist Configuration**
 - ✅ **Bundle Identifier**: `com.attachdesign.markto` (registered domain)
-- ✅ **Version Numbers**: CFBundleVersion: "1", CFBundleShortVersionString: "1.0.0"
+- ✅ **Version Numbers**: CFBundleVersion: "2", CFBundleShortVersionString: "1.0.1"
 - ✅ **App Category**: `public.app-category.productivity`
 - ✅ **Minimum System Version**: macOS 13.0
 - ✅ **Privacy API Usage Declaration**: UserDefaults usage declared
