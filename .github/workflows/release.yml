@@ -118,7 +118,11 @@ jobs:
         echo "🔍 Available signing identities:"
         security find-identity -v -p codesigning
         
-        # Use automatic code signing with proper team ID
+        # Extract the exact team ID from the Developer ID certificate
+        CERT_TEAM_ID=$(security find-certificate -c "Developer ID Application" -p | openssl x509 -text -noout | grep -A1 "Subject:" | grep -o "OU=[^,]*" | cut -d= -f2 || echo "XZC4QKL34R")
+        echo "🏷️ Certificate Team ID: $CERT_TEAM_ID"
+        
+        # Use automatic code signing which is more reliable for CI
         xcodebuild \
           -project MarkTo.xcodeproj \
           -scheme $SCHEME \
@@ -126,11 +130,10 @@ jobs:
           -derivedDataPath DerivedData \
           -archivePath "DerivedData/$APP_NAME.xcarchive" \
           archive \
-          CODE_SIGN_IDENTITY="Developer ID Application: Gary Keeler (XZC4QKL34R)" \
-          CODE_SIGN_STYLE=Manual \
-          DEVELOPMENT_TEAM="${{ secrets.TEAM_ID }}" \
+          CODE_SIGN_STYLE=Automatic \
+          DEVELOPMENT_TEAM="$CERT_TEAM_ID" \
           OTHER_CODE_SIGN_FLAGS="--timestamp" \
-          PROVISIONING_PROFILE=""
+          -allowProvisioningUpdates
     
     - name: Export app
       run: |
