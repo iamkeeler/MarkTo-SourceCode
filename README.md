@@ -61,28 +61,6 @@ Your Markdown content never leaves your device. MarkTo only accesses:
 
 *Coming Soon to the Mac App Store*
 
-For early access and development updates, you can build from source (see [Building](#building) section).
-
-## 🛠 Building from Source
-
-### Requirements
-- macOS 13.0 or later
-- Xcode 15.0 or later
-- Valid Apple Developer account (for running on your device)
-
-### Steps
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/iamkeeler/MarkToRTF.git
-   cd MarkToRTF
-   ```
-
-2. Open `MarkTo.xcodeproj` in Xcode
-
-3. Select your development team in Project Settings → Signing & Capabilities
-
-4. Build and run (⌘R)
-
 ## 🚀 Usage
 
 ### Quick Start
@@ -129,30 +107,13 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 4. Add tests if applicable
 5. Submit a pull request
 
-## 📞 Support
-
-### Get Help
-- **Documentation**: Check our [Wiki](../../wiki) for detailed guides
-- **Issues**: Report bugs or request features via [GitHub Issues](../../issues)
-- **Discussions**: Join our [GitHub Discussions](../../discussions) for questions and tips
-
 ### Developer Contact
 - **Developer**: Gary Keeler
 - **GitHub**: [@iamkeeler](https://github.com/iamkeeler)
-- **Website**: [attachdesign.com](https://attachdesign.com)
-- **Email**: [Support Email](mailto:support@attachdesign.com)
+- **Website**: [attachdesign.com](https://markto.attach.design)
+- **Email**: [Support Email](mailto:gary@attach.design)
 
 ## 📄 License
 
 MarkTo is released under the MIT License. See [LICENSE](LICENSE) for details.
 
----
-
-<div align="center">
-  <p>Made with ❤️ for the Markdown community</p>
-  <p>
-    <a href="#top">Back to Top</a> •
-    <a href="../../issues">Report Issue</a> •
-    <a href="../../discussions">Ask Question</a>
-  </p>
-</div>
