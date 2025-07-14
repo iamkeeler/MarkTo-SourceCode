@@ -122,8 +122,7 @@ jobs:
         TEAM_ID="${{ secrets.TEAM_ID }}"
         echo "🏷️ Using Team ID: '$TEAM_ID'"
         
-        # Build with proper code signing for notarization
-        # Use automatic code signing but specify the team and certificate
+        # Build with manual code signing for notarization
         xcodebuild \
           -project MarkTo.xcodeproj \
           -scheme $SCHEME \
@@ -132,6 +131,7 @@ jobs:
           -archivePath "DerivedData/$APP_NAME.xcarchive" \
           archive \
           CODE_SIGN_IDENTITY="Developer ID Application" \
+          CODE_SIGN_STYLE=Manual \
           DEVELOPMENT_TEAM="$TEAM_ID" \
           OTHER_CODE_SIGN_FLAGS="--timestamp --options=runtime" \
           PROVISIONING_PROFILE=""
