@@ -202,66 +202,73 @@ jobs:
         # Staple the notarization
         xcrun stapler staple "$APP_NAME.app"
     
-    - name: Create PKG installer
-      run: |
-        echo "📦 Creating PKG installer..."
-        mkdir -p "DerivedData/PKG"
-        
-        # Create a simple component package without complex installer resources
-        echo "🔨 Building component package..."
-        pkgbuild \
-          --root "DerivedData/Export" \
-          --identifier "com.attachdesign.markto" \
-          --version "${{ steps.version.outputs.version }}" \
-          --install-location "/Applications" \
-          --sign "Developer ID Installer" \
-          "DerivedData/PKG/$APP_NAME-Component.pkg"
-        
-        echo "✅ Component package created successfully"
-        
-        # Create a simple distribution package without complex resources
-        echo "📋 Creating distribution package..."
-        productbuild \
-          --distribution <(cat << EOF
-        <?xml version="1.0" encoding="utf-8"?>
-        <installer-gui-script minSpecVersion="1">
-            <title>MarkTo ${{ steps.version.outputs.version }}</title>
-            <organization>com.attachdesign</organization>
-            <domains enable_anywhere="true"/>
-            <options customize="never" require-scripts="false"/>
-            <choices-outline>
-                <line choice="default">
-                    <line choice="com.attachdesign.markto"/>
-                </line>
-            </choices-outline>
-            <choice id="default"/>
-            <choice id="com.attachdesign.markto" visible="false">
-                <pkg-ref id="com.attachdesign.markto"/>
-            </choice>
-            <pkg-ref id="com.attachdesign.markto" version="${{ steps.version.outputs.version }}" onConclusion="none">DerivedData/PKG/$APP_NAME-Component.pkg</pkg-ref>
-        </installer-gui-script>
-        EOF
-          ) \
-          --package-path "DerivedData/PKG" \
-          --sign "Developer ID Installer" \
-          "DerivedData/PKG/$APP_NAME-Installer.pkg"
-        
-        echo "✅ PKG installer created successfully"
-        ls -la "DerivedData/PKG/"
+    # TODO: Re-enable PKG creation once signing issues in CI are resolved
+    # - name: Create PKG installer
+    #   run: |
+    #     echo "📦 Creating PKG installer..."
+    #     mkdir -p "DerivedData/PKG"
+    #     
+    #     # Create unsigned component package first (to avoid signing hangs in CI)
+    #     echo "🔨 Building unsigned component package..."
+    #     pkgbuild \
+    #       --root "DerivedData/Export" \
+    #       --identifier "com.attachdesign.markto" \
+    #       --version "${{ steps.version.outputs.version }}" \
+    #       --install-location "/Applications" \
+    #       "DerivedData/PKG/$APP_NAME-Component-unsigned.pkg"
+    #     
+    #     echo "✅ Unsigned component package created"
+    #     
+    #     # Sign the component package separately
+    #     echo "🔏 Signing component package..."
+    #     productsign \
+    #       --sign "Developer ID Installer" \
+    #       "DerivedData/PKG/$APP_NAME-Component-unsigned.pkg" \
+    #       "DerivedData/PKG/$APP_NAME-Component.pkg"
+    #     
+    #     echo "✅ Component package signed"
+    #     
+    #     # Create simple distribution package
+    #     echo "📋 Creating final installer..."
+    #     productbuild \
+    #       --distribution <(echo '<?xml version="1.0" encoding="utf-8"?>
+    #     <installer-gui-script minSpecVersion="1">
+    #         <title>MarkTo '${{ steps.version.outputs.version }}'</title>
+    #         <organization>com.attachdesign</organization>
+    #         <domains enable_anywhere="true"/>
+    #         <options customize="never" require-scripts="false"/>
+    #         <choices-outline>
+    #             <line choice="default">
+    #                 <line choice="com.attachdesign.markto"/>
+    #             </line>
+    #         </choices-outline>
+    #         <choice id="default"/>
+    #         <choice id="com.attachdesign.markto" visible="false">
+    #             <pkg-ref id="com.attachdesign.markto"/>
+    #         </choice>
+    #         <pkg-ref id="com.attachdesign.markto" version="${{ steps.version.outputs.version }}" onConclusion="none">DerivedData/PKG/'$APP_NAME'-Component.pkg</pkg-ref>
+    #     </installer-gui-script>') \
+    #       --package-path "DerivedData/PKG" \
+    #       --sign "Developer ID Installer" \
+    #       "DerivedData/PKG/$APP_NAME-Installer.pkg"
+    #     
+    #     echo "✅ PKG installer created successfully"
+    #     ls -la "DerivedData/PKG/"
     
-    - name: Notarize PKG
-      env:
-        APPLE_ID: ${{ secrets.APPLE_ID }}
-        APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-        TEAM_ID: ${{ secrets.TEAM_ID }}
-      run: |
-        # Submit PKG for notarization
-        xcrun notarytool submit "DerivedData/PKG/$APP_NAME-Installer.pkg" \
-          --keychain-profile "notarytool-profile" \
-          --wait
-        
-        # Staple the notarization
-        xcrun stapler staple "DerivedData/PKG/$APP_NAME-Installer.pkg"
+    # TODO: Re-enable PKG notarization once PKG creation is working
+    # - name: Notarize PKG
+    #   env:
+    #     APPLE_ID: ${{ secrets.APPLE_ID }}
+    #     APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+    #     TEAM_ID: ${{ secrets.TEAM_ID }}
+    #   run: |
+    #     # Submit PKG for notarization
+    #     xcrun notarytool submit "DerivedData/PKG/$APP_NAME-Installer.pkg" \
+    #       --keychain-profile "notarytool-profile" \
+    #       --wait
+    #     
+    #     # Staple the notarization
+    #     xcrun stapler staple "DerivedData/PKG/$APP_NAME-Installer.pkg"
     
     - name: Create DMG
       run: |
@@ -282,8 +289,6 @@ jobs:
       run: |
         cd DerivedData
         sha256sum "$APP_NAME-${{ steps.version.outputs.version }}.dmg" > "$APP_NAME-${{ steps.version.outputs.version }}.dmg.sha256"
-        cd PKG
-        sha256sum "$APP_NAME-${{ steps.version.outputs.version }}.pkg" > "$APP_NAME-${{ steps.version.outputs.version }}.pkg.sha256"
     
     - name: Create release notes
       run: |
@@ -338,8 +343,6 @@ jobs:
         files: |
           DerivedData/MarkTo-${{ steps.version.outputs.version }}.dmg
           DerivedData/MarkTo-${{ steps.version.outputs.version }}.dmg.sha256
-          DerivedData/PKG/MarkTo-${{ steps.version.outputs.version }}.pkg
-          DerivedData/PKG/MarkTo-${{ steps.version.outputs.version }}.pkg.sha256
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
