@@ -204,9 +204,11 @@ jobs:
     
     - name: Create PKG installer
       run: |
+        echo "📦 Creating PKG installer..."
         mkdir -p "DerivedData/PKG"
         
-        # Create component package
+        # Create a simple component package without complex installer resources
+        echo "🔨 Building component package..."
         pkgbuild \
           --root "DerivedData/Export" \
           --identifier "com.attachdesign.markto" \
@@ -215,8 +217,12 @@ jobs:
           --sign "Developer ID Installer" \
           "DerivedData/PKG/$APP_NAME-Component.pkg"
         
-        # Create distribution XML
-        cat > Distribution.xml << EOF
+        echo "✅ Component package created successfully"
+        
+        # Create a simple distribution package without complex resources
+        echo "📋 Creating distribution package..."
+        productbuild \
+          --distribution <(cat << EOF
         <?xml version="1.0" encoding="utf-8"?>
         <installer-gui-script minSpecVersion="1">
             <title>MarkTo ${{ steps.version.outputs.version }}</title>
@@ -233,115 +239,15 @@ jobs:
                 <pkg-ref id="com.attachdesign.markto"/>
             </choice>
             <pkg-ref id="com.attachdesign.markto" version="${{ steps.version.outputs.version }}" onConclusion="none">DerivedData/PKG/$APP_NAME-Component.pkg</pkg-ref>
-            <background file="installer-background.png" alignment="topleft" scaling="none"/>
-            <welcome file="welcome.html"/>
-            <readme file="readme.html"/>
-            <license file="license.html"/>
         </installer-gui-script>
         EOF
-        
-        # Create installer resources
-        mkdir -p "InstallerResources"
-        
-        # Welcome HTML
-        cat > InstallerResources/welcome.html << EOF
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>Welcome</title>
-            <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px; }
-                h1 { color: #1d1d1f; }
-                p { line-height: 1.5; }
-            </style>
-        </head>
-        <body>
-            <h1>Welcome to MarkTo ${{ steps.version.outputs.version }}</h1>
-            <p>MarkTo is a lightweight, native macOS application for converting Markdown to Rich Text Format (RTF).</p>
-            <p>This installer will install MarkTo in your Applications folder.</p>
-            <h3>What's New:</h3>
-            <ul>
-                <li>Bug fixes and improvements</li>
-                <li>Enhanced performance</li>
-                <li>Updated user interface</li>
-            </ul>
-        </body>
-        </html>
-        EOF
-        
-        # README HTML
-        cat > InstallerResources/readme.html << EOF
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>Read Me</title>
-            <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px; }
-                h1, h2 { color: #1d1d1f; }
-                p { line-height: 1.5; }
-                code { background-color: #f5f5f5; padding: 2px 4px; border-radius: 3px; }
-            </style>
-        </head>
-        <body>
-            <h1>MarkTo Read Me</h1>
-            <h2>System Requirements</h2>
-            <ul>
-                <li>macOS 13.0 or later</li>
-                <li>Apple Silicon or Intel processor</li>
-            </ul>
-            <h2>Usage</h2>
-            <p>After installation, you can:</p>
-            <ol>
-                <li>Launch MarkTo from Applications</li>
-                <li>Access it from the menu bar</li>
-                <li>Convert Markdown to RTF with ⌘R</li>
-            </ol>
-            <h2>Support</h2>
-            <p>For support, visit: <a href="https://github.com/iamkeeler/MarkTo-SourceCode">https://github.com/iamkeeler/MarkTo-SourceCode</a></p>
-        </body>
-        </html>
-        EOF
-        
-        # License HTML
-        cat > InstallerResources/license.html << EOF
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>License</title>
-            <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px; }
-                h1 { color: #1d1d1f; }
-                p { line-height: 1.5; }
-                pre { background-color: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; }
-            </style>
-        </head>
-        <body>
-            <h1>MarkTo License</h1>
-            <p>MarkTo is released under the Creative Commons Attribution-NonCommercial 4.0 International License.</p>
-            <p>You are free to:</p>
-            <ul>
-                <li>Share — copy and redistribute the material in any medium or format</li>
-                <li>Adapt — remix, transform, and build upon the material</li>
-            </ul>
-            <p>Under the following terms:</p>
-            <ul>
-                <li>Attribution — You must give appropriate credit</li>
-                <li>NonCommercial — You may not use the material for commercial purposes</li>
-            </ul>
-            <p>For the full license text, visit: <a href="https://creativecommons.org/licenses/by-nc/4.0/">https://creativecommons.org/licenses/by-nc/4.0/</a></p>
-        </body>
-        </html>
-        EOF
-        
-        # Create final PKG
-        productbuild \
-          --distribution Distribution.xml \
-          --resources "InstallerResources" \
+          ) \
+          --package-path "DerivedData/PKG" \
           --sign "Developer ID Installer" \
-          "DerivedData/PKG/$APP_NAME-${{ steps.version.outputs.version }}.pkg"
+          "DerivedData/PKG/$APP_NAME-Installer.pkg"
+        
+        echo "✅ PKG installer created successfully"
+        ls -la "DerivedData/PKG/"
     
     - name: Notarize PKG
       env:
@@ -350,12 +256,12 @@ jobs:
         TEAM_ID: ${{ secrets.TEAM_ID }}
       run: |
         # Submit PKG for notarization
-        xcrun notarytool submit "DerivedData/PKG/$APP_NAME-${{ steps.version.outputs.version }}.pkg" \
+        xcrun notarytool submit "DerivedData/PKG/$APP_NAME-Installer.pkg" \
           --keychain-profile "notarytool-profile" \
           --wait
         
         # Staple the notarization
-        xcrun stapler staple "DerivedData/PKG/$APP_NAME-${{ steps.version.outputs.version }}.pkg"
+        xcrun stapler staple "DerivedData/PKG/$APP_NAME-Installer.pkg"
     
     - name: Create DMG
       run: |
