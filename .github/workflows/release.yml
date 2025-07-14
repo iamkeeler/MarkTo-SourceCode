@@ -122,7 +122,8 @@ jobs:
         TEAM_ID="${{ secrets.TEAM_ID }}"
         echo "🏷️ Using Team ID: '$TEAM_ID'"
         
-        # Use manual code signing with the specific certificate hash
+        # Build with proper code signing for notarization
+        # Use automatic code signing but specify the team and certificate
         xcodebuild \
           -project MarkTo.xcodeproj \
           -scheme $SCHEME \
@@ -130,10 +131,9 @@ jobs:
           -derivedDataPath DerivedData \
           -archivePath "DerivedData/$APP_NAME.xcarchive" \
           archive \
-          CODE_SIGN_IDENTITY="4B2D29936EAE5D09CD6C4B7F3CD8D16098B42D20" \
-          CODE_SIGN_STYLE=Manual \
+          CODE_SIGN_IDENTITY="Developer ID Application" \
           DEVELOPMENT_TEAM="$TEAM_ID" \
-          OTHER_CODE_SIGN_FLAGS="--timestamp" \
+          OTHER_CODE_SIGN_FLAGS="--timestamp --options=runtime" \
           PROVISIONING_PROFILE=""
     
     - name: Export app
@@ -148,15 +148,31 @@ jobs:
         # Extract the .app from the .xcarchive
         cp -R "DerivedData/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" "DerivedData/Export/"
         
-        # Verify the app was extracted
+        # Re-sign the app for notarization with hardened runtime
+        echo "🔏 Re-signing app for notarization..."
+        TEAM_ID="${{ secrets.TEAM_ID }}"
+        
+        # Sign the app with hardened runtime for notarization
+        codesign --force --sign "Developer ID Application" \
+          --entitlements "MarkTo/MarkTo.entitlements" \
+          --options runtime \
+          --timestamp \
+          --verbose \
+          "DerivedData/Export/$APP_NAME.app"
+        
+        # Verify the app was extracted and signed
         if [ -d "DerivedData/Export/$APP_NAME.app" ]; then
-          echo "✅ App extracted successfully"
+          echo "✅ App extracted and re-signed successfully"
           echo "📋 App info:"
           ls -la "DerivedData/Export/$APP_NAME.app"
           
           # Verify code signing
           echo "🔍 Verifying code signature:"
           codesign -dv --verbose=4 "DerivedData/Export/$APP_NAME.app" 2>&1 || echo "Code signing verification failed"
+          
+          # Verify entitlements
+          echo "🔍 Verifying entitlements:"
+          codesign -d --entitlements :- "DerivedData/Export/$APP_NAME.app" 2>&1 || echo "Entitlements verification failed"
         else
           echo "❌ Failed to extract app"
           exit 1
