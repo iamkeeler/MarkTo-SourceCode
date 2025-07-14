@@ -95,6 +95,12 @@ jobs:
         echo "✅ Certificates imported successfully:"
         security find-identity -v "$KEYCHAIN_NAME" | grep "Developer ID"
         
+        # Set default keychain for codesign operations
+        security default-keychain -s "$KEYCHAIN_NAME"
+        
+        # Allow codesign to access the keychain
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+        
         set -x  # Re-enable command echoing
     
     - name: Get version number
@@ -108,6 +114,11 @@ jobs:
     
     - name: Build app
       run: |
+        # List available signing identities for debugging
+        echo "🔍 Available signing identities:"
+        security find-identity -v -p codesigning
+        
+        # Use automatic code signing with proper team ID
         xcodebuild \
           -project MarkTo.xcodeproj \
           -scheme $SCHEME \
@@ -115,10 +126,11 @@ jobs:
           -derivedDataPath DerivedData \
           -archivePath "DerivedData/$APP_NAME.xcarchive" \
           archive \
-          CODE_SIGN_IDENTITY="Developer ID Application" \
+          CODE_SIGN_IDENTITY="Developer ID Application: Gary Keeler (XZC4QKL34R)" \
           CODE_SIGN_STYLE=Manual \
           DEVELOPMENT_TEAM="${{ secrets.TEAM_ID }}" \
-          OTHER_CODE_SIGN_FLAGS="--timestamp"
+          OTHER_CODE_SIGN_FLAGS="--timestamp" \
+          PROVISIONING_PROFILE=""
     
     - name: Export app
       run: |
