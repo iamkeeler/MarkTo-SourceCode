@@ -151,7 +151,7 @@ struct SettingsView: View {
                 Section {
                     // App Info
                     LabeledContent("Version") {
-                        Text("1.0.0")
+                        Text("1.0.1")
                             .foregroundStyle(.secondary)
                     }
                     

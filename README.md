@@ -63,7 +63,7 @@ Your Markdown content never leaves your device. MarkTo only accesses:
 
 ## 🗺 Roadmap
 
-### Current Version (1.0.0)
+### Current Version (1.0.1)
 - ✅ Core Markdown to RTF conversion
 - ✅ Menu bar integration
 - ✅ Customizable formatting
