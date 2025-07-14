@@ -33,6 +33,7 @@
 		A100000129000000000000033 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A100000129000000000000034 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A100000129000000000000035 /* MarkTo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MarkTo.entitlements; sourceTree = "<group>"; };
+		A100000129000000000000050 /* MarkTo-AppStore.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MarkTo-AppStore.entitlements; sourceTree = "<group>"; };
 		A1000001290000000000001B /* MarkToApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkToApp.swift; sourceTree = "<group>"; };
 		A1000001290000000000001D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1000001290000000000001F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -73,6 +74,7 @@
 			children = (
 				A100000129000000000000034 /* Info.plist */,
 				A100000129000000000000035 /* MarkTo.entitlements */,
+				A100000129000000000000050 /* MarkTo-AppStore.entitlements */,
 				A1000001290000000000001B /* MarkToApp.swift */,
 				A100000129000000000000036 /* Views */,
 				A100000129000000000000037 /* ViewModels */,
@@ -374,7 +376,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = MarkTo/MarkTo.entitlements;
+				CODE_SIGN_ENTITLEMENTS = MarkTo/MarkTo-AppStore.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;

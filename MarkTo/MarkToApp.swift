@@ -17,6 +17,7 @@ struct MarkToApp: App {
         
         Settings {
             SettingsView()
+                .environmentObject(appSettings)
         }
     }
 }
