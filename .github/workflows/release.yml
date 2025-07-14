@@ -288,7 +288,7 @@ jobs:
     - name: Generate checksums
       run: |
         cd DerivedData
-        sha256sum "$APP_NAME-${{ steps.version.outputs.version }}.dmg" > "$APP_NAME-${{ steps.version.outputs.version }}.dmg.sha256"
+        shasum -a 256 "$APP_NAME-${{ steps.version.outputs.version }}.dmg" > "$APP_NAME-${{ steps.version.outputs.version }}.dmg.sha256"
     
     - name: Create release notes
       run: |
