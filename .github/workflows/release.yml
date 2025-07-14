@@ -1,0 +1,431 @@
+name: Build and Release MarkTo
+
+on:
+  push:
+    branches: [ release ]
+  workflow_dispatch: # Allow manual triggering
+
+# Security: Restrict permissions to minimum required
+permissions:
+  contents: write      # For creating releases
+  id-token: write     # For OIDC authentication
+  packages: read      # For accessing packages
+
+env:
+  APP_NAME: MarkTo
+  SCHEME: MarkTo
+  CONFIGURATION: Release
+  DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0 pinned to SHA
+    - name: Run security scan
+      run: |
+        echo "🔍 Scanning for potential security issues..."
+        # Check for hardcoded credentials
+        if grep -r -i "password\|secret\|key\|token" . --exclude-dir=.git --exclude-dir=.github --exclude="*.md" --exclude="*.yml" --exclude="*.yaml"; then
+          echo "⚠️  Warning: Found potential credential keywords in code"
+        else
+          echo "✅ No obvious credential keywords found"
+        fi
+        # Check recent commits
+        echo "📋 Recent commits:"
+        git log --oneline -n 5
+
+  build-and-release:
+    needs: security-scan
+    runs-on: macos-latest
+    environment: production  # Requires manual approval for security
+    timeout-minutes: 60      # Prevent runaway jobs
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0 pinned to SHA
+      
+    - name: Select Xcode version
+      run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+      
+    - name: Show Xcode version
+      run: xcodebuild -version
+      
+    - name: Import Code Signing Certificates
+      env:
+        DEVELOPER_ID_APPLICATION_P12: ${{ secrets.DEVELOPER_ID_APPLICATION_P12 }}
+        DEVELOPER_ID_INSTALLER_P12: ${{ secrets.DEVELOPER_ID_INSTALLER_P12 }}
+        KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
+      run: |
+        # Enhanced certificate security with verification
+        set +x  # Disable command echoing for security
+        
+        echo "🔐 Setting up secure keychain..."
+        
+        # Create unique keychain name to avoid conflicts
+        KEYCHAIN_NAME="build-$(uuidgen).keychain"
+        security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+        security default-keychain -s "$KEYCHAIN_NAME"
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+        security set-keychain-settings -t 1800 -u "$KEYCHAIN_NAME"  # 30 min timeout
+        
+        echo "📦 Importing certificates..."
+        # Import certificates with verification
+        echo "$DEVELOPER_ID_APPLICATION_P12" | base64 --decode > app_cert.p12
+        echo "$DEVELOPER_ID_INSTALLER_P12" | base64 --decode > installer_cert.p12
+        
+        # Verify certificate files before import
+        if [ ! -s app_cert.p12 ] || [ ! -s installer_cert.p12 ]; then
+          echo "❌ Certificate files are empty or invalid"
+          exit 1
+        fi
+        
+        # Import certificates
+        security import app_cert.p12 -k "$KEYCHAIN_NAME" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+        security import installer_cert.p12 -k "$KEYCHAIN_NAME" -P "$CERT_PASSWORD" -T /usr/bin/productbuild
+        
+        security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+        
+        # Immediately clean up certificate files
+        rm -f app_cert.p12 installer_cert.p12
+        
+        # Verify certificates are properly imported
+        echo "✅ Certificates imported successfully:"
+        security find-identity -v "$KEYCHAIN_NAME" | grep "Developer ID"
+        
+        set -x  # Re-enable command echoing
+    
+    - name: Get version number
+      id: version
+      run: |
+        VERSION=$(plutil -p MarkTo/Info.plist | grep CFBundleShortVersionString | cut -d'"' -f4)
+        BUILD=$(plutil -p MarkTo/Info.plist | grep CFBundleVersion | cut -d'"' -f4)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "build=$BUILD" >> $GITHUB_OUTPUT
+        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Build app
+      run: |
+        xcodebuild \
+          -project MarkTo.xcodeproj \
+          -scheme $SCHEME \
+          -configuration $CONFIGURATION \
+          -derivedDataPath DerivedData \
+          -archivePath "DerivedData/$APP_NAME.xcarchive" \
+          archive \
+          CODE_SIGN_IDENTITY="Developer ID Application" \
+          CODE_SIGN_STYLE=Manual \
+          DEVELOPMENT_TEAM="${{ secrets.TEAM_ID }}" \
+          OTHER_CODE_SIGN_FLAGS="--timestamp"
+    
+    - name: Export app
+      run: |
+        # Create export options plist
+        cat > ExportOptions.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>developer-id</string>
+            <key>teamID</key>
+            <string>${{ secrets.TEAM_ID }}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+        </dict>
+        </plist>
+        EOF
+        
+        # Export the archive
+        xcodebuild \
+          -exportArchive \
+          -archivePath "DerivedData/$APP_NAME.xcarchive" \
+          -exportPath "DerivedData/Export" \
+          -exportOptionsPlist ExportOptions.plist
+    
+    - name: Notarize app
+      env:
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+        TEAM_ID: ${{ secrets.TEAM_ID }}
+      run: |
+        # Create notarization credentials
+        xcrun notarytool store-credentials "notarytool-profile" \
+          --apple-id "$APPLE_ID" \
+          --password "$APPLE_ID_PASSWORD" \
+          --team-id "$TEAM_ID"
+        
+        # Create a zip for notarization
+        cd DerivedData/Export
+        ditto -c -k --keepParent "$APP_NAME.app" "$APP_NAME.zip"
+        
+        # Submit for notarization
+        xcrun notarytool submit "$APP_NAME.zip" \
+          --keychain-profile "notarytool-profile" \
+          --wait
+        
+        # Staple the notarization
+        xcrun stapler staple "$APP_NAME.app"
+    
+    - name: Create PKG installer
+      run: |
+        mkdir -p "DerivedData/PKG"
+        
+        # Create component package
+        pkgbuild \
+          --root "DerivedData/Export" \
+          --identifier "com.attachdesign.markto" \
+          --version "${{ steps.version.outputs.version }}" \
+          --install-location "/Applications" \
+          --sign "Developer ID Installer" \
+          "DerivedData/PKG/$APP_NAME-Component.pkg"
+        
+        # Create distribution XML
+        cat > Distribution.xml << EOF
+        <?xml version="1.0" encoding="utf-8"?>
+        <installer-gui-script minSpecVersion="1">
+            <title>MarkTo ${{ steps.version.outputs.version }}</title>
+            <organization>com.attachdesign</organization>
+            <domains enable_anywhere="true"/>
+            <options customize="never" require-scripts="false"/>
+            <choices-outline>
+                <line choice="default">
+                    <line choice="com.attachdesign.markto"/>
+                </line>
+            </choices-outline>
+            <choice id="default"/>
+            <choice id="com.attachdesign.markto" visible="false">
+                <pkg-ref id="com.attachdesign.markto"/>
+            </choice>
+            <pkg-ref id="com.attachdesign.markto" version="${{ steps.version.outputs.version }}" onConclusion="none">DerivedData/PKG/$APP_NAME-Component.pkg</pkg-ref>
+            <background file="installer-background.png" alignment="topleft" scaling="none"/>
+            <welcome file="welcome.html"/>
+            <readme file="readme.html"/>
+            <license file="license.html"/>
+        </installer-gui-script>
+        EOF
+        
+        # Create installer resources
+        mkdir -p "InstallerResources"
+        
+        # Welcome HTML
+        cat > InstallerResources/welcome.html << EOF
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Welcome</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px; }
+                h1 { color: #1d1d1f; }
+                p { line-height: 1.5; }
+            </style>
+        </head>
+        <body>
+            <h1>Welcome to MarkTo ${{ steps.version.outputs.version }}</h1>
+            <p>MarkTo is a lightweight, native macOS application for converting Markdown to Rich Text Format (RTF).</p>
+            <p>This installer will install MarkTo in your Applications folder.</p>
+            <h3>What's New:</h3>
+            <ul>
+                <li>Bug fixes and improvements</li>
+                <li>Enhanced performance</li>
+                <li>Updated user interface</li>
+            </ul>
+        </body>
+        </html>
+        EOF
+        
+        # README HTML
+        cat > InstallerResources/readme.html << EOF
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Read Me</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px; }
+                h1, h2 { color: #1d1d1f; }
+                p { line-height: 1.5; }
+                code { background-color: #f5f5f5; padding: 2px 4px; border-radius: 3px; }
+            </style>
+        </head>
+        <body>
+            <h1>MarkTo Read Me</h1>
+            <h2>System Requirements</h2>
+            <ul>
+                <li>macOS 13.0 or later</li>
+                <li>Apple Silicon or Intel processor</li>
+            </ul>
+            <h2>Usage</h2>
+            <p>After installation, you can:</p>
+            <ol>
+                <li>Launch MarkTo from Applications</li>
+                <li>Access it from the menu bar</li>
+                <li>Convert Markdown to RTF with ⌘R</li>
+            </ol>
+            <h2>Support</h2>
+            <p>For support, visit: <a href="https://github.com/iamkeeler/MarkTo-SourceCode">https://github.com/iamkeeler/MarkTo-SourceCode</a></p>
+        </body>
+        </html>
+        EOF
+        
+        # License HTML
+        cat > InstallerResources/license.html << EOF
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>License</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px; }
+                h1 { color: #1d1d1f; }
+                p { line-height: 1.5; }
+                pre { background-color: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; }
+            </style>
+        </head>
+        <body>
+            <h1>MarkTo License</h1>
+            <p>MarkTo is released under the Creative Commons Attribution-NonCommercial 4.0 International License.</p>
+            <p>You are free to:</p>
+            <ul>
+                <li>Share — copy and redistribute the material in any medium or format</li>
+                <li>Adapt — remix, transform, and build upon the material</li>
+            </ul>
+            <p>Under the following terms:</p>
+            <ul>
+                <li>Attribution — You must give appropriate credit</li>
+                <li>NonCommercial — You may not use the material for commercial purposes</li>
+            </ul>
+            <p>For the full license text, visit: <a href="https://creativecommons.org/licenses/by-nc/4.0/">https://creativecommons.org/licenses/by-nc/4.0/</a></p>
+        </body>
+        </html>
+        EOF
+        
+        # Create final PKG
+        productbuild \
+          --distribution Distribution.xml \
+          --resources "InstallerResources" \
+          --sign "Developer ID Installer" \
+          "DerivedData/PKG/$APP_NAME-${{ steps.version.outputs.version }}.pkg"
+    
+    - name: Notarize PKG
+      env:
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+        TEAM_ID: ${{ secrets.TEAM_ID }}
+      run: |
+        # Submit PKG for notarization
+        xcrun notarytool submit "DerivedData/PKG/$APP_NAME-${{ steps.version.outputs.version }}.pkg" \
+          --keychain-profile "notarytool-profile" \
+          --wait
+        
+        # Staple the notarization
+        xcrun stapler staple "DerivedData/PKG/$APP_NAME-${{ steps.version.outputs.version }}.pkg"
+    
+    - name: Create DMG
+      run: |
+        # Create a temporary directory for DMG contents
+        mkdir -p "DMG"
+        cp -R "DerivedData/Export/$APP_NAME.app" "DMG/"
+        
+        # Create Applications symlink
+        ln -s /Applications "DMG/Applications"
+        
+        # Create DMG
+        hdiutil create -volname "MarkTo ${{ steps.version.outputs.version }}" \
+          -srcfolder "DMG" \
+          -ov -format UDZO \
+          "DerivedData/$APP_NAME-${{ steps.version.outputs.version }}.dmg"
+    
+    - name: Generate checksums
+      run: |
+        cd DerivedData
+        sha256sum "$APP_NAME-${{ steps.version.outputs.version }}.dmg" > "$APP_NAME-${{ steps.version.outputs.version }}.dmg.sha256"
+        cd PKG
+        sha256sum "$APP_NAME-${{ steps.version.outputs.version }}.pkg" > "$APP_NAME-${{ steps.version.outputs.version }}.pkg.sha256"
+    
+    - name: Create release notes
+      run: |
+        cat > RELEASE_NOTES.md << EOF
+        # MarkTo ${{ steps.version.outputs.version }}
+        
+        ## What's New
+        - Bug fixes and improvements
+        - Enhanced performance and stability
+        - Updated user interface elements
+        
+        ## Installation Options
+        
+        ### Option 1: DMG (Recommended for most users)
+        1. Download \`MarkTo-${{ steps.version.outputs.version }}.dmg\`
+        2. Open the DMG file
+        3. Drag MarkTo to your Applications folder
+        
+        ### Option 2: PKG Installer
+        1. Download \`MarkTo-${{ steps.version.outputs.version }}.pkg\`
+        2. Double-click to run the installer
+        3. Follow the installation prompts
+        
+        ## System Requirements
+        - macOS 13.0 or later
+        - Apple Silicon or Intel processor
+        
+        ## Verification
+        Both packages are signed with a Developer ID certificate and notarized by Apple.
+        
+        You can verify the checksums:
+        - DMG: See \`MarkTo-${{ steps.version.outputs.version }}.dmg.sha256\`
+        - PKG: See \`MarkTo-${{ steps.version.outputs.version }}.pkg.sha256\`
+        
+        ## Open Source
+        MarkTo is open source! View the code at: https://github.com/iamkeeler/MarkTo-SourceCode
+        
+        ## License
+        Creative Commons Attribution-NonCommercial 4.0 International License
+        
+        For commercial licensing, contact: gary@attach.design
+        EOF
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844  # v1 pinned to SHA
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        name: MarkTo ${{ steps.version.outputs.version }}
+        body_path: RELEASE_NOTES.md
+        draft: false
+        prerelease: false
+        files: |
+          DerivedData/MarkTo-${{ steps.version.outputs.version }}.dmg
+          DerivedData/MarkTo-${{ steps.version.outputs.version }}.dmg.sha256
+          DerivedData/PKG/MarkTo-${{ steps.version.outputs.version }}.pkg
+          DerivedData/PKG/MarkTo-${{ steps.version.outputs.version }}.pkg.sha256
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Security cleanup
+      if: always()
+      run: |
+        echo "🧹 Performing security cleanup..."
+        
+        # Remove any temporary certificate files
+        rm -f *.p12 || true
+        rm -f app_cert.p12 installer_cert.p12 || true
+        rm -f ExportOptions.plist || true
+        
+        # Remove all build keychains (find by pattern)
+        echo "🔐 Cleaning up keychains..."
+        KEYCHAIN_LIST=$(security list-keychains | grep -E "build.*keychain" | tr -d '"' || true)
+        if [ -n "$KEYCHAIN_LIST" ]; then
+          for keychain in $KEYCHAIN_LIST; do
+            echo "Removing keychain: $keychain"
+            security delete-keychain "$keychain" || true
+          done
+        fi
+        
+        # Verify cleanup
+        echo "✅ Security cleanup completed"
+        security list-keychains | grep -E "build.*keychain" || echo "✅ No build keychains remaining"
