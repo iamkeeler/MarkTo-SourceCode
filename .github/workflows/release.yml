@@ -138,30 +138,29 @@ jobs:
     
     - name: Export app
       run: |
-        # Create export options plist
-        cat > ExportOptions.plist << EOF
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>method</key>
-            <string>developer-id</string>
-            <key>teamID</key>
-            <string>${{ secrets.TEAM_ID }}</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>stripSwiftSymbols</key>
-            <true/>
-        </dict>
-        </plist>
-        EOF
+        # Instead of using xcodebuild -exportArchive (which can crash in CI),
+        # let's extract the app directly from the archive
+        echo "📦 Extracting app from archive..."
         
-        # Export the archive
-        xcodebuild \
-          -exportArchive \
-          -archivePath "DerivedData/$APP_NAME.xcarchive" \
-          -exportPath "DerivedData/Export" \
-          -exportOptionsPlist ExportOptions.plist
+        # Create export directory
+        mkdir -p "DerivedData/Export"
+        
+        # Extract the .app from the .xcarchive
+        cp -R "DerivedData/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" "DerivedData/Export/"
+        
+        # Verify the app was extracted
+        if [ -d "DerivedData/Export/$APP_NAME.app" ]; then
+          echo "✅ App extracted successfully"
+          echo "📋 App info:"
+          ls -la "DerivedData/Export/$APP_NAME.app"
+          
+          # Verify code signing
+          echo "🔍 Verifying code signature:"
+          codesign -dv --verbose=4 "DerivedData/Export/$APP_NAME.app" 2>&1 || echo "Code signing verification failed"
+        else
+          echo "❌ Failed to extract app"
+          exit 1
+        fi
     
     - name: Notarize app
       env:
