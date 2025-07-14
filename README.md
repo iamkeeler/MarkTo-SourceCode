@@ -50,7 +50,6 @@ MarkTo is built with privacy as a core principle:
 - **No Network Access**: All processing happens locally on your Mac
 - **No Data Collection**: We don't collect, store, or transmit any of your data
 - **No Analytics**: No tracking, telemetry, or usage analytics
-- **Sandboxed**: Runs in Apple's security sandbox for maximum protection
 - **Open Source**: Code is publicly available for review and transparency
 
 Your Markdown content never leaves your device. MarkTo only accesses:
