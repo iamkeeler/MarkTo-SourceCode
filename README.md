@@ -9,7 +9,6 @@
   [![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
   [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
   
-  [Download from App Store](#app-store) • [Features](#features) • [Privacy](#privacy) • [Support](#support)
 </div>
 
 ## About MarkTo
