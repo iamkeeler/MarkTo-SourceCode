@@ -512,17 +512,25 @@ class MarkdownConverter {
     
     private func isTableRow(_ line: String) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
-        return trimmed.contains("|") && !trimmed.hasPrefix("|") || trimmed.hasSuffix("|")
+        // A table row must contain at least one pipe character
+        // and should have at least 2 cells (indicated by having content around the pipe)
+        guard trimmed.contains("|") else { return false }
+        
+        // Split by pipe and check if we have at least 2 non-empty cells
+        let cells = trimmed.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
+        let nonEmptyCells = cells.filter { !$0.isEmpty }
+        
+        return nonEmptyCells.count >= 2
     }
     
     private func parseTable(lines: [String], startIndex: Int) -> (attributedString: NSAttributedString, endIndex: Int) {
         var tableLines: [String] = []
         var currentIndex = startIndex
         
-        // Collect table rows
+        // Collect all consecutive table rows
         while currentIndex < lines.count {
             let line = lines[currentIndex].trimmingCharacters(in: .whitespaces)
-            if line.contains("|") {
+            if isTableRow(line) {
                 tableLines.append(line)
                 currentIndex += 1
             } else {
@@ -530,41 +538,209 @@ class MarkdownConverter {
             }
         }
         
+        // Parse the table structure
         let result = NSMutableAttributedString()
         let baseFont = NSFont.systemFont(ofSize: 13)
+        let headerFont = NSFont.boldSystemFont(ofSize: 13)
+        let codeFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         
+        var headerRow: [String] = []
+        var separatorFound = false
+        var dataRows: [[String]] = []
+        
+        // Process each line
         for (index, line) in tableLines.enumerated() {
-            // Skip separator rows (---|---|---)
-            if line.contains("-") && line.replacingOccurrences(of: "|", with: "").replacingOccurrences(of: "-", with: "").replacingOccurrences(of: ":", with: "").trimmingCharacters(in: .whitespaces).isEmpty {
+            let cells = parseTableCells(line)
+            
+            // Check if this is a separator row (---|---|---)
+            if isSeparatorRow(line) {
+                separatorFound = true
                 continue
             }
             
-            let cells = line.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
-            let isHeader = index == 0
-            
-            for (cellIndex, cell) in cells.enumerated() {
-                if cellIndex == 0 && cell.isEmpty { continue } // Skip empty first cell
-                
-                let cellContent = parseInlineMarkdown(cell, baseFont: baseFont, codeFont: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular))
-                let mutableCellContent = NSMutableAttributedString(attributedString: cellContent)
-                
-                if isHeader {
-                    mutableCellContent.addAttribute(.font, value: NSFont.boldSystemFont(ofSize: 13), range: NSRange(location: 0, length: mutableCellContent.length))
-                }
-                
-                result.append(mutableCellContent)
-                
-                if cellIndex < cells.count - 1 {
-                    result.append(NSAttributedString(string: " │ ", attributes: [.font: baseFont, .foregroundColor: NSColor.separatorColor]))
-                }
+            if !separatorFound && index == 0 {
+                // First row before separator is header
+                headerRow = cells
+            } else if separatorFound || headerRow.isEmpty {
+                // Data rows (either we found a separator or no header detected)
+                dataRows.append(cells)
             }
+        }
+        
+        // If no separator was found, treat the first row as data
+        if !separatorFound && !headerRow.isEmpty {
+            dataRows.insert(headerRow, at: 0)
+            headerRow = []
+        }
+        
+        // Create table with proper RTF formatting
+        let tableResult = createFormattedTable(
+            headerRow: headerRow,
+            dataRows: dataRows,
+            baseFont: baseFont,
+            headerFont: headerFont,
+            codeFont: codeFont
+        )
+        
+        result.append(tableResult)
+        
+        return (result, currentIndex)
+    }
+    
+    private func parseTableCells(_ line: String) -> [String] {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        var cells = trimmed.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
+        
+        // Remove empty cells at the beginning and end (from leading/trailing pipes)
+        if cells.first?.isEmpty == true {
+            cells.removeFirst()
+        }
+        if cells.last?.isEmpty == true {
+            cells.removeLast()
+        }
+        
+        return cells
+    }
+    
+    private func isSeparatorRow(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let cleaned = trimmed.replacingOccurrences(of: "|", with: "")
+                           .replacingOccurrences(of: "-", with: "")
+                           .replacingOccurrences(of: ":", with: "")
+                           .replacingOccurrences(of: " ", with: "")
+        return cleaned.isEmpty && trimmed.contains("-")
+    }
+    
+    private func createFormattedTable(
+        headerRow: [String],
+        dataRows: [[String]],
+        baseFont: NSFont,
+        headerFont: NSFont,
+        codeFont: NSFont
+    ) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        
+        // Determine the maximum number of columns
+        let maxColumns = max(headerRow.count, dataRows.map { $0.count }.max() ?? 0)
+        
+        // Create a visual table using box-drawing characters
+        let verticalSeparator = " │ "
+        let horizontalLine = "─"
+        
+        // Add header row if present
+        if !headerRow.isEmpty {
+            let headerContent = createTableRowContent(
+                cells: headerRow,
+                maxColumns: maxColumns,
+                font: headerFont,
+                codeFont: codeFont
+            )
+            result.append(headerContent)
+            result.append(NSAttributedString(string: "\n"))
             
-            if index < tableLines.count - 1 {
+            // Add separator line after header
+            let separatorLine = createTableSeparatorLine(maxColumns: maxColumns)
+            result.append(separatorLine)
+            result.append(NSAttributedString(string: "\n"))
+        }
+        
+        // Add data rows
+        for (index, row) in dataRows.enumerated() {
+            let rowContent = createTableRowContent(
+                cells: row,
+                maxColumns: maxColumns,
+                font: baseFont,
+                codeFont: codeFont
+            )
+            result.append(rowContent)
+            
+            // Add newline between rows (but not after the last row)
+            if index < dataRows.count - 1 {
                 result.append(NSAttributedString(string: "\n"))
             }
         }
         
-        return (result, currentIndex)
+        return result
+    }
+    
+    private func createTableRowContent(
+        cells: [String],
+        maxColumns: Int,
+        font: NSFont,
+        codeFont: NSFont
+    ) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        
+        for columnIndex in 0..<maxColumns {
+            let cellContent = columnIndex < cells.count ? cells[columnIndex] : ""
+            
+            // Parse inline markdown within the cell
+            let parsedContent = parseInlineMarkdown(cellContent, baseFont: font, codeFont: codeFont)
+            
+            // Create a mutable copy to ensure consistent font
+            let mutableContent = NSMutableAttributedString(attributedString: parsedContent)
+            
+            // Ensure the cell content uses the correct base font
+            mutableContent.enumerateAttributes(in: NSRange(location: 0, length: mutableContent.length), options: []) { attributes, range, _ in
+                var newAttributes = attributes
+                if let currentFont = attributes[.font] as? NSFont {
+                    // Preserve formatting but ensure consistent size
+                    if currentFont.fontDescriptor.symbolicTraits.contains(.bold) {
+                        newAttributes[.font] = NSFont.boldSystemFont(ofSize: font.pointSize)
+                    } else if currentFont.fontDescriptor.symbolicTraits.contains(.italic) {
+                        newAttributes[.font] = NSFont.systemFont(ofSize: font.pointSize).withTraits(.italic)
+                    } else {
+                        newAttributes[.font] = font
+                    }
+                }
+                mutableContent.setAttributes(newAttributes, range: range)
+            }
+            
+            result.append(mutableContent)
+            
+            // Add column separator (except for the last column)
+            if columnIndex < maxColumns - 1 {
+                result.append(NSAttributedString(
+                    string: " │ ",
+                    attributes: [
+                        .font: font,
+                        .foregroundColor: NSColor.separatorColor
+                    ]
+                ))
+            }
+        }
+        
+        return result
+    }
+    
+    private func createTableSeparatorLine(maxColumns: Int) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        let baseFont = NSFont.systemFont(ofSize: 13)
+        
+        for columnIndex in 0..<maxColumns {
+            // Create a line of dashes for each column
+            let dashLine = String(repeating: "─", count: 12) // Fixed width for consistency
+            result.append(NSAttributedString(
+                string: dashLine,
+                attributes: [
+                    .font: baseFont,
+                    .foregroundColor: NSColor.separatorColor
+                ]
+            ))
+            
+            // Add column separator (except for the last column)
+            if columnIndex < maxColumns - 1 {
+                result.append(NSAttributedString(
+                    string: "─┼─",
+                    attributes: [
+                        .font: baseFont,
+                        .foregroundColor: NSColor.separatorColor
+                    ]
+                ))
+            }
+        }
+        
+        return result
     }
     
     // MARK: - List Processing Helpers

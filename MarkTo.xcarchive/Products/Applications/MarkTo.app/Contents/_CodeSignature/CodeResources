@@ -10,13 +10,17 @@
 		</data>
 		<key>Resources/Assets.car</key>
 		<data>
-		8cUZ2Nn75h3rGrJPv8tUQPdUGCM=
+		c/39hypswHmctlTMKbE1fqpOqk8=
 		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
 		<key>Resources/AppIcon.icns</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			aRN+ZAWiNT+rJXE+GTkKJTfzEEc=
+			</data>
 			<key>hash2</key>
 			<data>
 			I1yDN9qY/xmkiArgP3eSqLr3lKOnknO1jKeGGnJpmJA=
@@ -24,9 +28,13 @@
 		</dict>
 		<key>Resources/Assets.car</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			c/39hypswHmctlTMKbE1fqpOqk8=
+			</data>
 			<key>hash2</key>
 			<data>
-			9v5dUKMMqWhyXwNiMb6evTl/uHPWrcp3G0j6u9EIbdY=
+			Nu4xU5hGjgj/YBzjAso8c7gTdJ1Ah68pz7asI/5v7aU=
 			</data>
 		</dict>
 	</dict>
