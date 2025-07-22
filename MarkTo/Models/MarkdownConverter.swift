@@ -1,6 +1,253 @@
 import Foundation
 import AppKit
 
+// MARK: - RTF Table Generator
+class RTFTableGenerator {
+    
+    struct TableData {
+        let headerRow: [String]
+        let dataRows: [[String]]
+        let hasHeader: Bool
+        
+        var maxColumns: Int {
+            max(headerRow.count, dataRows.map { $0.count }.max() ?? 0)
+        }
+    }
+    
+    // Generate RTF table with proper table structure
+    static func generateRTFTable(from tableData: TableData) -> NSAttributedString {
+        // Try HTML table approach - many apps recognize HTML table structure better than RTF
+        let htmlTable = generateHTMLTable(from: tableData)
+        
+        // Convert HTML to NSAttributedString
+        if let htmlData = htmlTable.data(using: .utf8),
+           let attributedString = try? NSAttributedString(
+            data: htmlData,
+            options: [
+                .documentType: NSAttributedString.DocumentType.html,
+                .characterEncoding: String.Encoding.utf8.rawValue
+            ],
+            documentAttributes: nil
+           ) {
+            return attributedString
+        } else {
+            // HTML parsing failed, use enhanced plain text table
+            return generateEnhancedPlainTextTable(from: tableData)
+        }
+    }
+    
+    // Generate HTML table structure
+    private static func generateHTMLTable(from tableData: TableData) -> String {
+        var html = "<table border='1' cellpadding='4' cellspacing='0' style='border-collapse: collapse;'>"
+        
+        // Header row
+        if tableData.hasHeader && !tableData.headerRow.isEmpty {
+            html += "<tr>"
+            for cell in tableData.headerRow {
+                let escapedCell = cell.replacingOccurrences(of: "&", with: "&amp;")
+                                     .replacingOccurrences(of: "<", with: "&lt;")
+                                     .replacingOccurrences(of: ">", with: "&gt;")
+                html += "<th style='font-weight: bold; background-color: #f0f0f0;'>\(escapedCell)</th>"
+            }
+            html += "</tr>"
+        }
+        
+        // Data rows
+        for row in tableData.dataRows {
+            html += "<tr>"
+            for (index, cell) in row.enumerated() {
+                let escapedCell = cell.replacingOccurrences(of: "&", with: "&amp;")
+                                     .replacingOccurrences(of: "<", with: "&lt;")
+                                     .replacingOccurrences(of: ">", with: "&gt;")
+                html += "<td>\(escapedCell)</td>"
+            }
+            
+            // Fill empty cells to match max columns
+            for _ in row.count..<tableData.maxColumns {
+                html += "<td></td>"
+            }
+            html += "</tr>"
+        }
+        
+        html += "</table>"
+        return html
+    }
+    
+    // Create a complete RTF document with proper table structure
+    private static func createRTFDocument(from tableData: TableData) -> String {
+        var rtf = "{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}}\\f0\\fs24 "
+        
+        // Calculate column widths in twips (1440 twips = 1 inch)
+        let totalWidth = 8000 // Total table width in twips
+        let columnWidth = totalWidth / tableData.maxColumns
+        
+        // Header row
+        if tableData.hasHeader && !tableData.headerRow.isEmpty {
+            rtf += generateRTFTableRow(
+                cells: tableData.headerRow,
+                columnWidth: columnWidth,
+                maxColumns: tableData.maxColumns,
+                isHeader: true
+            )
+        }
+        
+        // Data rows
+        for row in tableData.dataRows {
+            rtf += generateRTFTableRow(
+                cells: row,
+                columnWidth: columnWidth,
+                maxColumns: tableData.maxColumns,
+                isHeader: false
+            )
+        }
+        
+        rtf += "\\par}"
+        return rtf
+    }
+    
+    // Generate a single RTF table row with proper table formatting
+    private static func generateRTFTableRow(
+        cells: [String],
+        columnWidth: Int,
+        maxColumns: Int,
+        isHeader: Bool
+    ) -> String {
+        var rtf = ""
+        
+        // Start table row
+        rtf += "\\trowd\\trgaph108\\trleft-108"
+        
+        // Define cell positions and borders
+        for i in 1...maxColumns {
+            let position = i * columnWidth
+            rtf += "\\clbrdrt\\brdrs\\brdrw10\\brdrcf1"  // Top border
+            rtf += "\\clbrdrl\\brdrs\\brdrw10\\brdrcf1"  // Left border
+            rtf += "\\clbrdrb\\brdrs\\brdrw10\\brdrcf1"  // Bottom border
+            rtf += "\\clbrdrr\\brdrs\\brdrw10\\brdrcf1"  // Right border
+            rtf += "\\cellx\(position)"
+        }
+        
+        // Add cell content
+        for i in 0..<maxColumns {
+            let cellContent = i < cells.count ? cells[i] : ""
+            let escapedContent = escapeRTFString(cellContent)
+            
+            if isHeader {
+                rtf += "{\\b \(escapedContent)}\\cell"
+            } else {
+                rtf += "\(escapedContent)\\cell"
+            }
+        }
+        
+        rtf += "\\row"
+        return rtf
+    }
+    
+    // Helper function to escape RTF special characters
+    private static func escapeRTFString(_ string: String) -> String {
+        return string.replacingOccurrences(of: "\\", with: "\\\\")
+                    .replacingOccurrences(of: "{", with: "\\{")
+                    .replacingOccurrences(of: "}", with: "\\}")
+                    .replacingOccurrences(of: "\n", with: "\\par ")
+    }
+    
+    // Generate RTF table code manually
+    private static func generateRTFTableCode(from tableData: TableData) -> String {
+        var rtf = "{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}}\\f0\\fs24 "
+        
+        // Calculate column widths (equal width for all columns)
+        let columnWidth = 9000 / tableData.maxColumns // RTF units
+        
+        // Header row
+        if tableData.hasHeader && !tableData.headerRow.isEmpty {
+            rtf += generateRTFTableRow(
+                cells: tableData.headerRow,
+                columnWidth: columnWidth,
+                maxColumns: tableData.maxColumns,
+                isHeader: true
+            )
+        }
+        
+        // Data rows
+        for row in tableData.dataRows {
+            rtf += generateRTFTableRow(
+                cells: row,
+                columnWidth: columnWidth,
+                maxColumns: tableData.maxColumns,
+                isHeader: false
+            )
+        }
+        
+        rtf += "\\par}"
+        return rtf
+    }
+    
+    // Generate enhanced plain text table with better formatting
+    private static func generateEnhancedPlainTextTable(from tableData: TableData) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        
+        // Calculate column widths
+        var columnWidths: [Int] = []
+        let allRows = tableData.hasHeader ? [tableData.headerRow] + tableData.dataRows : tableData.dataRows
+        
+        for columnIndex in 0..<tableData.maxColumns {
+            let maxWidth = allRows.map { row in
+                columnIndex < row.count ? row[columnIndex].count : 0
+            }.max() ?? 0
+            columnWidths.append(max(maxWidth, 3)) // Minimum width of 3
+        }
+        
+        // Header row
+        if tableData.hasHeader && !tableData.headerRow.isEmpty {
+            let headerString = NSMutableAttributedString()
+            for (index, cell) in tableData.headerRow.enumerated() {
+                let paddedCell = cell.padding(toLength: columnWidths[index], withPad: " ", startingAt: 0)
+                let cellString = NSAttributedString(string: paddedCell, attributes: [
+                    .font: NSFont.boldSystemFont(ofSize: 13)
+                ])
+                headerString.append(cellString)
+                
+                if index < tableData.headerRow.count - 1 {
+                    headerString.append(NSAttributedString(string: " │ "))
+                }
+            }
+            result.append(headerString)
+            result.append(NSAttributedString(string: "\n"))
+            
+            // Separator line
+            var separatorLine = ""
+            for (index, width) in columnWidths.enumerated() {
+                separatorLine += String(repeating: "─", count: width)
+                if index < columnWidths.count - 1 {
+                    separatorLine += "─┼─"
+                }
+            }
+            result.append(NSAttributedString(string: separatorLine + "\n"))
+        }
+        
+        // Data rows
+        for row in tableData.dataRows {
+            let rowString = NSMutableAttributedString()
+            for (index, cell) in row.enumerated() {
+                let columnIndex = min(index, columnWidths.count - 1)
+                let paddedCell = cell.padding(toLength: columnWidths[columnIndex], withPad: " ", startingAt: 0)
+                let cellString = NSAttributedString(string: paddedCell, attributes: [
+                    .font: NSFont.systemFont(ofSize: 13)
+                ])
+                rowString.append(cellString)
+                
+                if index < row.count - 1 && index < columnWidths.count - 1 {
+                    rowString.append(NSAttributedString(string: " │ "))
+                }
+            }
+            result.append(rowString)
+            result.append(NSAttributedString(string: "\n"))
+        }
+        
+        return result
+    }
+}
+
 enum MarkdownConversionError: Error, LocalizedError {
     case invalidInput
     case conversionFailed
@@ -107,9 +354,10 @@ class MarkdownConverter {
                 }
                 // Check for tables
                 else if isTableRow(trimmedLine) {
-                    let tableRows = parseTable(lines: lines, startIndex: i)
-                    lineString.append(tableRows.attributedString)
-                    i = tableRows.endIndex - 1 // Skip processed table rows
+                    let tableResult = parseTableStructure(lines: lines, startIndex: i)
+                    let rtfTable = RTFTableGenerator.generateRTFTable(from: tableResult.tableData)
+                    lineString.append(rtfTable)
+                    i = tableResult.endIndex - 1 // Skip processed table rows
                 }
                 // Parse different markdown elements
                 else if let parsedLine = parseMarkdownLine(line, baseFont: baseFont, codeFont: codeFont) {
@@ -523,6 +771,60 @@ class MarkdownConverter {
         return nonEmptyCells.count >= 2
     }
     
+    private func parseTableStructure(lines: [String], startIndex: Int) -> (tableData: RTFTableGenerator.TableData, endIndex: Int) {
+        var tableLines: [String] = []
+        var currentIndex = startIndex
+        
+        // Collect all consecutive table rows
+        while currentIndex < lines.count {
+            let line = lines[currentIndex].trimmingCharacters(in: .whitespaces)
+            if isTableRow(line) {
+                tableLines.append(line)
+                currentIndex += 1
+            } else {
+                break
+            }
+        }
+        
+        var headerRow: [String] = []
+        var separatorFound = false
+        var dataRows: [[String]] = []
+        
+        // Process each line
+        for (index, line) in tableLines.enumerated() {
+            let cells = parseTableCells(line)
+            
+            // Check if this is a separator row (---|---|---)
+            if isSeparatorRow(line) {
+                separatorFound = true
+                continue
+            }
+            
+            if !separatorFound && index == 0 {
+                // First row before separator is header
+                headerRow = cells
+            } else if separatorFound || headerRow.isEmpty {
+                // Data rows (either we found a separator or no header detected)
+                dataRows.append(cells)
+            }
+        }
+        
+        // If no separator was found, treat the first row as data
+        if !separatorFound && !headerRow.isEmpty {
+            dataRows.insert(headerRow, at: 0)
+            headerRow = []
+        }
+        
+        let tableData = RTFTableGenerator.TableData(
+            headerRow: headerRow,
+            dataRows: dataRows,
+            hasHeader: !headerRow.isEmpty
+        )
+        
+        return (tableData, currentIndex)
+    }
+
+    // Keep the old parseTable function for backward compatibility or fallback
     private func parseTable(lines: [String], startIndex: Int) -> (attributedString: NSAttributedString, endIndex: Int) {
         var tableLines: [String] = []
         var currentIndex = startIndex
@@ -622,10 +924,6 @@ class MarkdownConverter {
         
         // Determine the maximum number of columns
         let maxColumns = max(headerRow.count, dataRows.map { $0.count }.max() ?? 0)
-        
-        // Create a visual table using box-drawing characters
-        let verticalSeparator = " │ "
-        let horizontalLine = "─"
         
         // Add header row if present
         if !headerRow.isEmpty {
