@@ -1,6 +1,35 @@
 import Foundation
 import AppKit
 
+// MARK: - List Context Tracking
+class ListContext {
+    var isInList: Bool = false
+    var currentLevel: Int = 0
+    var lastListType: ListType = .unordered
+    var lastWasListItem: Bool = false
+    
+    enum ListType {
+        case unordered, ordered, task, definition
+    }
+    
+    func updateWith(level: Int, type: ListType) {
+        isInList = true
+        currentLevel = level
+        lastListType = type
+        lastWasListItem = true
+    }
+    
+    func reset() {
+        isInList = false
+        currentLevel = 0
+        lastWasListItem = false
+    }
+    
+    func setContinuation() {
+        lastWasListItem = false
+    }
+}
+
 // MARK: - RTF Table Generator
 class RTFTableGenerator {
     
@@ -55,7 +84,7 @@ class RTFTableGenerator {
         // Data rows
         for row in tableData.dataRows {
             html += "<tr>"
-            for (index, cell) in row.enumerated() {
+            for cell in row {
                 let escapedCell = cell.replacingOccurrences(of: "&", with: "&amp;")
                                      .replacingOccurrences(of: "<", with: "&lt;")
                                      .replacingOccurrences(of: ">", with: "&gt;")
@@ -304,13 +333,20 @@ class MarkdownConverter {
         var codeBlockLanguage: String? = nil
         
         var i = 0
-        var previousLineWasList = false // Track if the previous line was a list item
+        var listContext: ListContext = ListContext() // Track list state
+        
         while i < lines.count {
             let line = lines[i]
             let trimmedLine = line.trimmingCharacters(in: .whitespaces)
             
             if trimmedLine.isEmpty {
-                attributedString.append(NSAttributedString(string: "\n"))
+                // Handle empty lines in list context
+                if listContext.isInList {
+                    // Add reduced spacing within lists
+                    attributedString.append(NSAttributedString(string: "\n"))
+                } else {
+                    attributedString.append(NSAttributedString(string: "\n"))
+                }
                 i += 1
                 continue
             }
@@ -319,6 +355,7 @@ class MarkdownConverter {
             
             // Handle code blocks with language specification
             if trimmedLine.hasPrefix("```") {
+                listContext.reset() // Code blocks break lists
                 if !isInCodeBlock {
                     // Starting code block
                     codeBlockLanguage = String(trimmedLine.dropFirst(3)).trimmingCharacters(in: .whitespaces)
@@ -347,10 +384,12 @@ class MarkdownConverter {
                         .backgroundColor: NSColor.controlBackgroundColor
                     ]
                 ))
+                listContext.reset() // Code blocks break lists
             } else {
                 // Check for horizontal rules
                 if isHorizontalRule(trimmedLine) {
                     lineString.append(createHorizontalRule())
+                    listContext.reset() // Horizontal rules break lists
                 }
                 // Check for tables
                 else if isTableRow(trimmedLine) {
@@ -358,12 +397,14 @@ class MarkdownConverter {
                     let rtfTable = RTFTableGenerator.generateRTFTable(from: tableResult.tableData)
                     lineString.append(rtfTable)
                     i = tableResult.endIndex - 1 // Skip processed table rows
+                    listContext.reset() // Tables break lists
                 }
-                // Parse different markdown elements
-                else if let parsedLine = parseMarkdownLine(line, baseFont: baseFont, codeFont: codeFont) {
+                // Parse different markdown elements with list context awareness
+                else if let parsedLine = parseMarkdownLineWithContext(line, baseFont: baseFont, codeFont: codeFont, listContext: &listContext) {
                     lineString.append(parsedLine)
                 } else {
                     // Fallback to plain text
+                    listContext.reset()
                     lineString.append(NSAttributedString(string: trimmedLine, attributes: [.font: baseFont]))
                 }
             }
@@ -371,25 +412,25 @@ class MarkdownConverter {
             attributedString.append(lineString)
             attributedString.append(NSAttributedString(string: "\n"))
             i += 1
-            
-            // Check if the current line is a list continuation
-            previousLineWasList = isListContinuation(trimmedLine, previousWasList: previousLineWasList)
         }
         
         return attributedString
     }
     
-    private func parseMarkdownLine(_ line: String, baseFont: NSFont, codeFont: NSFont) -> NSAttributedString? {
+    private func parseMarkdownLineWithContext(_ line: String, baseFont: NSFont, codeFont: NSFont, listContext: inout ListContext) -> NSAttributedString? {
         let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+        let originalLine = line
         
-        // Headers (# ## ### #### ##### ######)
+        // Headers (# ## ### #### ##### ######) - these break lists
         if let headerMatch = trimmedLine.range(of: #"^#{1,6}\s+"#, options: .regularExpression) {
+            listContext.reset()
             let level = headerMatch.upperBound.utf16Offset(in: trimmedLine) - headerMatch.lowerBound.utf16Offset(in: trimmedLine) - 1
             let text = String(trimmedLine[headerMatch.upperBound...])
             return createHeading(text, level: level)
         }
-        // Blockquotes (> text)
+        // Blockquotes (> text) - these break lists
         else if trimmedLine.hasPrefix("> ") {
+            listContext.reset()
             let text = String(trimmedLine.dropFirst(2))
             return createBlockquote(text, baseFont: baseFont, codeFont: codeFont)
         }
@@ -398,6 +439,7 @@ class MarkdownConverter {
             let prefix = String(trimmedLine[..<listMatch.upperBound])
             let indentLevel = calculateIndentLevel(prefix)
             let text = String(trimmedLine[listMatch.upperBound...])
+            listContext.updateWith(level: indentLevel, type: .unordered)
             return createUnorderedListItem(text, level: indentLevel, baseFont: baseFont, codeFont: codeFont)
         }
         // Ordered lists with nested support
@@ -406,6 +448,7 @@ class MarkdownConverter {
             let indentLevel = calculateIndentLevel(prefix)
             let number = String(trimmedLine[numberMatch]).trimmingCharacters(in: .whitespaces).dropLast() // Remove the dot
             let text = String(trimmedLine[numberMatch.upperBound...])
+            listContext.updateWith(level: indentLevel, type: .ordered)
             return createOrderedListItem(text, number: String(number), level: indentLevel, baseFont: baseFont, codeFont: codeFont)
         }
         // Task lists (- [x] or - [ ]) with nested support
@@ -415,14 +458,24 @@ class MarkdownConverter {
             let checkbox = String(trimmedLine[taskMatch])
             let isChecked = checkbox.contains("x") || checkbox.contains("X")
             let text = String(trimmedLine[taskMatch.upperBound...])
+            listContext.updateWith(level: indentLevel, type: .task)
             return createTaskListItem(text, isChecked: isChecked, level: indentLevel, baseFont: baseFont, codeFont: codeFont)
         }
         // Definition lists (: definition)
         else if trimmedLine.hasPrefix(": ") {
             let text = String(trimmedLine.dropFirst(2))
+            listContext.updateWith(level: 1, type: .definition)
             return createDefinition(text, baseFont: baseFont, codeFont: codeFont)
         }
+        // List continuation - check if this is a continuation of a previous list
+        else if isListContinuationWithContext(originalLine, listContext: listContext) {
+            let indentLevel = listContext.currentLevel
+            listContext.setContinuation()
+            return createListContinuation(trimmedLine, level: indentLevel, baseFont: baseFont, codeFont: codeFont)
+        }
         else {
+            // Regular paragraph - this breaks lists unless it's clearly a continuation
+            listContext.reset()
             return parseInlineMarkdown(trimmedLine, baseFont: baseFont, codeFont: codeFont)
         }
     }
@@ -1045,15 +1098,27 @@ class MarkdownConverter {
     
     private func calculateIndentLevel(_ prefix: String) -> Int {
         // Count leading whitespace - support both spaces and tabs
-        // Standard Markdown: 4 spaces = 1 level, 1 tab = 1 level
         let spaces = prefix.filter { $0 == " " }.count
         let tabs = prefix.filter { $0 == "\t" }.count
         
-        // Calculate indent level: 4 spaces or 1 tab per level
-        let spaceLevel = spaces / 4
-        let tabLevel = tabs
+        // More flexible indentation handling for real-world content
+        // Many people use 2, 3, or 6 spaces for sublists
+        // Try to detect the pattern and be more flexible
+        if spaces > 0 {
+            // Level 0: 0-1 spaces
+            // Level 1: 2-5 spaces  
+            // Level 2: 6+ spaces
+            if spaces <= 1 {
+                return 0
+            } else if spaces <= 5 {
+                return 1
+            } else {
+                return 2 + (spaces - 6) / 4  // Additional levels every 4 spaces beyond 6
+            }
+        }
         
-        return max(spaceLevel, tabLevel)
+        // Tab-based indentation: 1 tab = 1 level
+        return tabs
     }
     
     private func getListBulletStyle(for level: Int) -> String {
@@ -1062,24 +1127,61 @@ class MarkdownConverter {
         return bullets[level % bullets.count]
     }
     
-    private func isListContinuation(_ line: String, previousWasList: Bool) -> Bool {
-        if !previousWasList { return false }
+    private func isListContinuationWithContext(_ line: String, listContext: ListContext) -> Bool {
+        if !listContext.isInList { return false }
         
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         
-        // Empty lines are allowed in lists
-        if trimmed.isEmpty { return true }
+        // Empty lines are allowed in lists (handled elsewhere)
+        if trimmed.isEmpty { return false }
         
-        // Lines that start with whitespace and aren't new list items are continuations
-        if line.hasPrefix(" ") || line.hasPrefix("\t") {
+        // Lines that start with significant whitespace and aren't new list items are continuations
+        if line.hasPrefix("  ") || line.hasPrefix("\t") {
             // Make sure it's not a new list item
-            let isNewList = trimmed.range(of: #"^([-*+]|\d+\.)\s"#, options: .regularExpression) != nil
+            let isNewUnorderedList = trimmed.range(of: #"^([-*+])\s"#, options: .regularExpression) != nil
+            let isNewOrderedList = trimmed.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil
             let isTaskList = trimmed.range(of: #"^([-*+])\s*\[([ xX])\]\s"#, options: .regularExpression) != nil
             
-            return !isNewList && !isTaskList
+            if !isNewUnorderedList && !isNewOrderedList && !isTaskList {
+                return true
+            }
+        }
+        
+        // Special case: lines that are clearly part of structured content
+        // Even without leading whitespace, some patterns indicate continuation
+        if trimmed.hasPrefix("**") && (trimmed.contains(":**") || trimmed.contains(":** ")) {
+            // Pattern like "**Problem:** text" or "**Goal:** text"
+            return true
+        }
+        
+        // Another common pattern: lines that start with "- **" (sub-bullets with bold text)
+        if trimmed.hasPrefix("- **") {
+            return false // This is actually a new list item, not a continuation
+        }
+        
+        // If we're in a list and this line has reasonable indentation but isn't a new list item
+        // and the previous line was a list item, this is likely a continuation
+        if listContext.lastWasListItem {
+            let leadingSpaces = line.prefix(while: { $0 == " " }).count
+            let leadingTabs = line.prefix(while: { $0 == "\t" }).count
+            
+            // If there's some indentation and it's not a clearly new item, treat as continuation
+            if (leadingSpaces >= 2 || leadingTabs >= 1) && !isNewListItem(trimmed) {
+                return true
+            }
         }
         
         return false
+    }
+    
+    private func isNewListItem(_ trimmed: String) -> Bool {
+        // Check all the patterns that would indicate a new list item
+        let isUnordered = trimmed.range(of: #"^([-*+])\s"#, options: .regularExpression) != nil
+        let isOrdered = trimmed.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil
+        let isTask = trimmed.range(of: #"^([-*+])\s*\[([ xX])\]\s"#, options: .regularExpression) != nil
+        let isDefinition = trimmed.hasPrefix(": ")
+        
+        return isUnordered || isOrdered || isTask || isDefinition
     }
     
     private func createListContinuation(_ text: String, level: Int, baseFont: NSFont, codeFont: NSFont) -> NSAttributedString {
