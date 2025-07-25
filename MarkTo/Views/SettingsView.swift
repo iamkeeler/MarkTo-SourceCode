@@ -182,10 +182,67 @@ struct SettingsView: View {
                     Text("A lightweight macOS app for converting Markdown to Rich Text Format.")
                         .foregroundStyle(.secondary)
                 }
+                
+                Section {
+                    // Open Source Description
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("MarkTo is open source software")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        Text("This application is released under the Creative Commons Attribution-NonCommercial 4.0 International License. You are free to use, modify, and share the source code for non-commercial purposes.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.vertical, 4)
+                    
+                    // GitHub Repository Link
+                    LabeledContent("Source Code") {
+                        Button("View on GitHub") {
+                            if let url = URL(string: "https://github.com/iamkeeler/MarkTo-SourceCode") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .buttonStyle(.link)
+                        .controlSize(.small)
+                    }
+                    .help("View the complete source code on GitHub")
+                    
+                    // License Link
+                    LabeledContent("License") {
+                        Button("CC BY-NC 4.0") {
+                            if let url = URL(string: "https://creativecommons.org/licenses/by-nc/4.0/") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .buttonStyle(.link)
+                        .controlSize(.small)
+                    }
+                    .help("View the full license terms")
+                    
+                    // Contributing Link
+                    LabeledContent("Contributing") {
+                        Button("Contribute") {
+                            if let url = URL(string: "https://github.com/iamkeeler/MarkTo-SourceCode/blob/main/CONTRIBUTING.md") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .buttonStyle(.link)
+                        .controlSize(.small)
+                    }
+                    .help("Learn how to contribute to the project")
+                    
+                } header: {
+                    Label("Open Source", systemImage: "chevron.left.forwardslash.chevron.right")
+                } footer: {
+                    Text("MarkTo is built with transparency and community collaboration in mind. Commercial licensing is available for business use.")
+                        .foregroundStyle(.secondary)
+                }
             }
             .formStyle(.grouped)
             .navigationTitle("Settings")
-            .frame(width: 500, height: 500)
+            .frame(width: 500, height: 600)
             .navigationDestination(for: String.self) { destination in
                 if destination == "formatting" {
                     FormattingCustomizationView()

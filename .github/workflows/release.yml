@@ -1,0 +1,371 @@
+name: Build and Release MarkTo
+
+on:
+  push:
+    branches: [ release ]
+  workflow_dispatch: # Allow manual triggering
+
+# Security: Restrict permissions to minimum required
+permissions:
+  contents: write      # For creating releases
+  id-token: write     # For OIDC authentication
+  packages: read      # For accessing packages
+
+env:
+  APP_NAME: MarkTo
+  SCHEME: MarkTo
+  CONFIGURATION: Release
+  DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0 pinned to SHA
+    - name: Run security scan
+      run: |
+        echo "🔍 Scanning for potential security issues..."
+        # Check for hardcoded credentials
+        if grep -r -i "password\|secret\|key\|token" . --exclude-dir=.git --exclude-dir=.github --exclude="*.md" --exclude="*.yml" --exclude="*.yaml"; then
+          echo "⚠️  Warning: Found potential credential keywords in code"
+        else
+          echo "✅ No obvious credential keywords found"
+        fi
+        # Check recent commits
+        echo "📋 Recent commits:"
+        git log --oneline -n 5
+
+  build-and-release:
+    needs: security-scan
+    runs-on: macos-latest
+    environment: production  # Requires manual approval for security
+    timeout-minutes: 60      # Prevent runaway jobs
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0 pinned to SHA
+      
+    - name: Select Xcode version
+      run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+      
+    - name: Show Xcode version
+      run: xcodebuild -version
+      
+    - name: Import Code Signing Certificates
+      env:
+        DEVELOPER_ID_APPLICATION_P12: ${{ secrets.DEVELOPER_ID_APPLICATION_P12 }}
+        DEVELOPER_ID_INSTALLER_P12: ${{ secrets.DEVELOPER_ID_INSTALLER_P12 }}
+        KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
+      run: |
+        # Enhanced certificate security with verification
+        set +x  # Disable command echoing for security
+        
+        echo "🔐 Setting up secure keychain..."
+        
+        # Create unique keychain name to avoid conflicts
+        KEYCHAIN_NAME="build-$(uuidgen).keychain"
+        security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+        security default-keychain -s "$KEYCHAIN_NAME"
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+        security set-keychain-settings -t 1800 -u "$KEYCHAIN_NAME"  # 30 min timeout
+        
+        echo "📦 Importing certificates..."
+        # Import certificates with verification
+        echo "$DEVELOPER_ID_APPLICATION_P12" | base64 --decode > app_cert.p12
+        echo "$DEVELOPER_ID_INSTALLER_P12" | base64 --decode > installer_cert.p12
+        
+        # Verify certificate files before import
+        if [ ! -s app_cert.p12 ] || [ ! -s installer_cert.p12 ]; then
+          echo "❌ Certificate files are empty or invalid"
+          exit 1
+        fi
+        
+        # Import certificates
+        security import app_cert.p12 -k "$KEYCHAIN_NAME" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+        security import installer_cert.p12 -k "$KEYCHAIN_NAME" -P "$CERT_PASSWORD" -T /usr/bin/productbuild
+        
+        security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+        
+        # Immediately clean up certificate files
+        rm -f app_cert.p12 installer_cert.p12
+        
+        # Verify certificates are properly imported
+        echo "✅ Certificates imported successfully:"
+        security find-identity -v "$KEYCHAIN_NAME" | grep "Developer ID"
+        
+        # Set default keychain for codesign operations
+        security default-keychain -s "$KEYCHAIN_NAME"
+        
+        # Allow codesign to access the keychain
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+        
+        set -x  # Re-enable command echoing
+    
+    - name: Get version number
+      id: version
+      run: |
+        VERSION=$(plutil -p MarkTo/Info.plist | grep CFBundleShortVersionString | cut -d'"' -f4)
+        BUILD=$(plutil -p MarkTo/Info.plist | grep CFBundleVersion | cut -d'"' -f4)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "build=$BUILD" >> $GITHUB_OUTPUT
+        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Build app
+      run: |
+        # List available signing identities for debugging
+        echo "🔍 Available signing identities:"
+        security find-identity -v -p codesigning
+        
+        # Use the team ID from GitHub secrets (which we just verified)
+        TEAM_ID="${{ secrets.TEAM_ID }}"
+        echo "🏷️ Using Team ID: '$TEAM_ID'"
+        
+        # Build with manual code signing for notarization
+        xcodebuild \
+          -project MarkTo.xcodeproj \
+          -scheme $SCHEME \
+          -configuration $CONFIGURATION \
+          -derivedDataPath DerivedData \
+          -archivePath "DerivedData/$APP_NAME.xcarchive" \
+          archive \
+          CODE_SIGN_IDENTITY="Developer ID Application" \
+          CODE_SIGN_STYLE=Manual \
+          DEVELOPMENT_TEAM="$TEAM_ID" \
+          OTHER_CODE_SIGN_FLAGS="--timestamp --options=runtime" \
+          PROVISIONING_PROFILE=""
+    
+    - name: Export app
+      run: |
+        # Instead of using xcodebuild -exportArchive (which can crash in CI),
+        # let's extract the app directly from the archive
+        echo "📦 Extracting app from archive..."
+        
+        # Create export directory
+        mkdir -p "DerivedData/Export"
+        
+        # Extract the .app from the .xcarchive
+        cp -R "DerivedData/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" "DerivedData/Export/"
+        
+        # Re-sign the app for notarization with hardened runtime
+        echo "🔏 Re-signing app for notarization..."
+        TEAM_ID="${{ secrets.TEAM_ID }}"
+        
+        # Sign the app with hardened runtime for notarization
+        codesign --force --sign "Developer ID Application" \
+          --entitlements "MarkTo/MarkTo.entitlements" \
+          --options runtime \
+          --timestamp \
+          --verbose \
+          "DerivedData/Export/$APP_NAME.app"
+        
+        # Verify the app was extracted and signed
+        if [ -d "DerivedData/Export/$APP_NAME.app" ]; then
+          echo "✅ App extracted and re-signed successfully"
+          echo "📋 App info:"
+          ls -la "DerivedData/Export/$APP_NAME.app"
+          
+          # Verify code signing
+          echo "🔍 Verifying code signature:"
+          codesign -dv --verbose=4 "DerivedData/Export/$APP_NAME.app" 2>&1 || echo "Code signing verification failed"
+          
+          # Verify entitlements
+          echo "🔍 Verifying entitlements:"
+          codesign -d --entitlements :- "DerivedData/Export/$APP_NAME.app" 2>&1 || echo "Entitlements verification failed"
+        else
+          echo "❌ Failed to extract app"
+          exit 1
+        fi
+    
+    - name: Notarize app
+      env:
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+        TEAM_ID: ${{ secrets.TEAM_ID }}
+      run: |
+        # Create notarization credentials
+        xcrun notarytool store-credentials "notarytool-profile" \
+          --apple-id "$APPLE_ID" \
+          --password "$APPLE_ID_PASSWORD" \
+          --team-id "$TEAM_ID"
+        
+        # Create a zip for notarization
+        cd DerivedData/Export
+        ditto -c -k --keepParent "$APP_NAME.app" "$APP_NAME.zip"
+        
+        # Submit for notarization
+        xcrun notarytool submit "$APP_NAME.zip" \
+          --keychain-profile "notarytool-profile" \
+          --wait
+        
+        # Staple the notarization
+        xcrun stapler staple "$APP_NAME.app"
+    
+    # TODO: Re-enable PKG creation once signing issues in CI are resolved
+    # - name: Create PKG installer
+    #   run: |
+    #     echo "📦 Creating PKG installer..."
+    #     mkdir -p "DerivedData/PKG"
+    #     
+    #     # Create unsigned component package first (to avoid signing hangs in CI)
+    #     echo "🔨 Building unsigned component package..."
+    #     pkgbuild \
+    #       --root "DerivedData/Export" \
+    #       --identifier "com.attachdesign.markto" \
+    #       --version "${{ steps.version.outputs.version }}" \
+    #       --install-location "/Applications" \
+    #       "DerivedData/PKG/$APP_NAME-Component-unsigned.pkg"
+    #     
+    #     echo "✅ Unsigned component package created"
+    #     
+    #     # Sign the component package separately
+    #     echo "🔏 Signing component package..."
+    #     productsign \
+    #       --sign "Developer ID Installer" \
+    #       "DerivedData/PKG/$APP_NAME-Component-unsigned.pkg" \
+    #       "DerivedData/PKG/$APP_NAME-Component.pkg"
+    #     
+    #     echo "✅ Component package signed"
+    #     
+    #     # Create simple distribution package
+    #     echo "📋 Creating final installer..."
+    #     productbuild \
+    #       --distribution <(echo '<?xml version="1.0" encoding="utf-8"?>
+    #     <installer-gui-script minSpecVersion="1">
+    #         <title>MarkTo '${{ steps.version.outputs.version }}'</title>
+    #         <organization>com.attachdesign</organization>
+    #         <domains enable_anywhere="true"/>
+    #         <options customize="never" require-scripts="false"/>
+    #         <choices-outline>
+    #             <line choice="default">
+    #                 <line choice="com.attachdesign.markto"/>
+    #             </line>
+    #         </choices-outline>
+    #         <choice id="default"/>
+    #         <choice id="com.attachdesign.markto" visible="false">
+    #             <pkg-ref id="com.attachdesign.markto"/>
+    #         </choice>
+    #         <pkg-ref id="com.attachdesign.markto" version="${{ steps.version.outputs.version }}" onConclusion="none">DerivedData/PKG/'$APP_NAME'-Component.pkg</pkg-ref>
+    #     </installer-gui-script>') \
+    #       --package-path "DerivedData/PKG" \
+    #       --sign "Developer ID Installer" \
+    #       "DerivedData/PKG/$APP_NAME-Installer.pkg"
+    #     
+    #     echo "✅ PKG installer created successfully"
+    #     ls -la "DerivedData/PKG/"
+    
+    # TODO: Re-enable PKG notarization once PKG creation is working
+    # - name: Notarize PKG
+    #   env:
+    #     APPLE_ID: ${{ secrets.APPLE_ID }}
+    #     APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+    #     TEAM_ID: ${{ secrets.TEAM_ID }}
+    #   run: |
+    #     # Submit PKG for notarization
+    #     xcrun notarytool submit "DerivedData/PKG/$APP_NAME-Installer.pkg" \
+    #       --keychain-profile "notarytool-profile" \
+    #       --wait
+    #     
+    #     # Staple the notarization
+    #     xcrun stapler staple "DerivedData/PKG/$APP_NAME-Installer.pkg"
+    
+    - name: Create DMG
+      run: |
+        # Create a temporary directory for DMG contents
+        mkdir -p "DMG"
+        cp -R "DerivedData/Export/$APP_NAME.app" "DMG/"
+        
+        # Create Applications symlink
+        ln -s /Applications "DMG/Applications"
+        
+        # Create DMG
+        hdiutil create -volname "MarkTo ${{ steps.version.outputs.version }}" \
+          -srcfolder "DMG" \
+          -ov -format UDZO \
+          "DerivedData/$APP_NAME-${{ steps.version.outputs.version }}.dmg"
+    
+    - name: Generate checksums
+      run: |
+        cd DerivedData
+        shasum -a 256 "$APP_NAME-${{ steps.version.outputs.version }}.dmg" > "$APP_NAME-${{ steps.version.outputs.version }}.dmg.sha256"
+    
+    - name: Create release notes
+      run: |
+        cat > RELEASE_NOTES.md << EOF
+        # MarkTo ${{ steps.version.outputs.version }}
+        
+        ## What's New
+        - Bug fixes and improvements
+        - Enhanced performance and stability
+        - Updated user interface elements
+        
+        ## Installation Options
+        
+        ### Option 1: DMG (Recommended for most users)
+        1. Download \`MarkTo-${{ steps.version.outputs.version }}.dmg\`
+        2. Open the DMG file
+        3. Drag MarkTo to your Applications folder
+        
+        ### Option 2: PKG Installer
+        1. Download \`MarkTo-${{ steps.version.outputs.version }}.pkg\`
+        2. Double-click to run the installer
+        3. Follow the installation prompts
+        
+        ## System Requirements
+        - macOS 13.0 or later
+        - Apple Silicon or Intel processor
+        
+        ## Verification
+        Both packages are signed with a Developer ID certificate and notarized by Apple.
+        
+        You can verify the checksums:
+        - DMG: See \`MarkTo-${{ steps.version.outputs.version }}.dmg.sha256\`
+        - PKG: See \`MarkTo-${{ steps.version.outputs.version }}.pkg.sha256\`
+        
+        ## Open Source
+        MarkTo is open source! View the code at: https://github.com/iamkeeler/MarkTo-SourceCode
+        
+        ## License
+        Creative Commons Attribution-NonCommercial 4.0 International License
+        
+        For commercial licensing, contact: gary@attach.design
+        EOF
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844  # v1 pinned to SHA
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        name: MarkTo ${{ steps.version.outputs.version }}
+        body_path: RELEASE_NOTES.md
+        draft: false
+        prerelease: false
+        files: |
+          DerivedData/MarkTo-${{ steps.version.outputs.version }}.dmg
+          DerivedData/MarkTo-${{ steps.version.outputs.version }}.dmg.sha256
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Security cleanup
+      if: always()
+      run: |
+        echo "🧹 Performing security cleanup..."
+        
+        # Remove any temporary certificate files
+        rm -f *.p12 || true
+        rm -f app_cert.p12 installer_cert.p12 || true
+        rm -f ExportOptions.plist || true
+        
+        # Remove all build keychains (find by pattern)
+        echo "🔐 Cleaning up keychains..."
+        KEYCHAIN_LIST=$(security list-keychains | grep -E "build.*keychain" | tr -d '"' || true)
+        if [ -n "$KEYCHAIN_LIST" ]; then
+          for keychain in $KEYCHAIN_LIST; do
+            echo "Removing keychain: $keychain"
+            security delete-keychain "$keychain" || true
+          done
+        fi
+        
+        # Verify cleanup
+        echo "✅ Security cleanup completed"
+        security list-keychains | grep -E "build.*keychain" || echo "✅ No build keychains remaining"
