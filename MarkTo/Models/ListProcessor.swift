@@ -6,6 +6,10 @@ import AppKit
 class ListProcessor {
     private let inlineProcessor: InlineProcessor
     
+    // Map to track list identifiers for compatibility with Microsoft Word
+    private var listIdentifiers: [Int: String] = [:]
+    private var nextListId: Int = 1
+    
     init(inlineProcessor: InlineProcessor) {
         self.inlineProcessor = inlineProcessor
     }
@@ -17,18 +21,10 @@ class ListProcessor {
         let content = inlineProcessor.processInlineMarkdown(text, baseFont: context.baseFont, codeFont: context.codeFont)
         let result = NSMutableAttributedString(attributedString: content)
         
-        // Create proper RTF list using NSTextList with level-appropriate markers
-        let markerFormat: NSTextList.MarkerFormat
-        switch level {
-        case 0: markerFormat = .disc
-        case 1: markerFormat = .circle
-        case 2: markerFormat = .square
-        default: markerFormat = .disc
-        }
+        // Get or create RTF list ID for this level and list type
+        let listId = getOrCreateListId(level: level, isOrdered: false)
         
-        let textList = NSTextList(markerFormat: markerFormat, options: 0)
-        
-        // Create paragraph style with NSTextList for proper RTF list formatting
+        // Create paragraph style with proper RTF list attributes for MS Word compatibility
         let paragraphStyle = NSMutableParagraphStyle()
         
         // Configure indentation based on level
@@ -38,11 +34,15 @@ class ListProcessor {
         paragraphStyle.tailIndent = 0
         paragraphStyle.paragraphSpacing = 2.0
         
-        // Add the text list to create proper RTF list structure
-        paragraphStyle.textLists = [textList]
-        
-        // Apply the paragraph style with list formatting
-        result.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: result.length))
+        // Apply MS Word compatible list formatting
+        applyWordCompatibleListFormatting(
+            to: result,
+            paragraphStyle: paragraphStyle,
+            listId: listId,
+            level: level,
+            isOrdered: false,
+            itemNumber: nil
+        )
         
         return result
     }
@@ -52,10 +52,13 @@ class ListProcessor {
         let content = inlineProcessor.processInlineMarkdown(text, baseFont: context.baseFont, codeFont: context.codeFont)
         let result = NSMutableAttributedString(attributedString: content)
         
-        // Create proper RTF numbered list using NSTextList
-        let textList = NSTextList(markerFormat: .decimal, options: 0)
+        // Get or create RTF list ID for this level and list type
+        let listId = getOrCreateListId(level: level, isOrdered: true)
         
-        // Create paragraph style with NSTextList for proper RTF list formatting
+        // Get numeric value for proper numbering
+        let itemNumber = Int(number) ?? 1
+        
+        // Create paragraph style with proper RTF list attributes for MS Word compatibility
         let paragraphStyle = NSMutableParagraphStyle()
         
         // Configure indentation based on level
@@ -65,11 +68,15 @@ class ListProcessor {
         paragraphStyle.tailIndent = 0
         paragraphStyle.paragraphSpacing = 2.0
         
-        // Add the text list to create proper RTF list structure
-        paragraphStyle.textLists = [textList]
-        
-        // Apply the paragraph style with list formatting
-        result.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: result.length))
+        // Apply MS Word compatible list formatting
+        applyWordCompatibleListFormatting(
+            to: result,
+            paragraphStyle: paragraphStyle,
+            listId: listId,
+            level: level,
+            isOrdered: true,
+            itemNumber: itemNumber
+        )
         
         return result
     }
@@ -100,6 +107,8 @@ class ListProcessor {
         paragraphStyle.tailIndent = 0
         paragraphStyle.paragraphSpacing = 2.0
         
+        // For task lists, we only use the indentation but not the automatic bullets
+        // since we're already adding our own checkbox character
         result.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: result.length))
         
         return result
@@ -228,5 +237,105 @@ class ListProcessor {
         }
         
         return 0
+    }
+    
+    // MARK: - MS Word Compatibility Methods
+    
+    /// Get or create a unique list identifier for this list level and type
+    private func getOrCreateListId(level: Int, isOrdered: Bool) -> String {
+        let key = (level * 10) + (isOrdered ? 1 : 0)
+        
+        if let existingId = listIdentifiers[key] {
+            return existingId
+        }
+        
+        // Create new list identifier
+        let newId = "List\(nextListId)"
+        nextListId += 1
+        listIdentifiers[key] = newId
+        
+        return newId
+    }
+    
+    /// Apply Word-compatible RTF list formatting to the attributed string
+    private func applyWordCompatibleListFormatting(
+        to attributedString: NSMutableAttributedString,
+        paragraphStyle: NSMutableParagraphStyle,
+        listId: String,
+        level: Int,
+        isOrdered: Bool,
+        itemNumber: Int?
+    ) {
+        // For maximum Word compatibility, we'll use a hybrid approach:
+        // 1. Set up proper indentation and tab stops
+        // 2. Add the list marker manually at the beginning of the text
+        // 3. Configure paragraph style for proper alignment
+        
+        // Configure tab stops for proper alignment in Word
+        paragraphStyle.tabStops = []
+        
+        // Set up proper indentation for the list level
+        let baseIndent: CGFloat = 28.0  // Standard Word list indent
+        let levelIndent = baseIndent * CGFloat(level + 1)
+        
+        // Configure indentation with hanging indent for the marker
+        paragraphStyle.firstLineHeadIndent = levelIndent - 18.0  // Hanging indent for marker
+        paragraphStyle.headIndent = levelIndent
+        paragraphStyle.tailIndent = 0
+        
+        // Add tab stop for text alignment after marker
+        let tabStop = NSTextTab(textAlignment: .left, location: levelIndent)
+        paragraphStyle.addTabStop(tabStop)
+        
+        // Set line spacing for better readability
+        paragraphStyle.lineSpacing = 0
+        paragraphStyle.paragraphSpacing = 6.0  // Space between list items
+        paragraphStyle.paragraphSpacingBefore = 0
+        
+        // Generate the appropriate list marker
+        let marker: String
+        if isOrdered {
+            let number = itemNumber ?? 1
+            marker = "\(number).\t"
+        } else {
+            // Use appropriate bullet styles based on level
+            switch level % 3 {
+            case 0: marker = "•\t"      // Bullet
+            case 1: marker = "◦\t"      // Circle
+            case 2: marker = "▪\t"      // Square
+            default: marker = "•\t"
+            }
+        }
+        
+        // Insert the marker at the beginning of the text
+        let markerString = NSMutableAttributedString(string: marker)
+        
+        // Apply the same formatting to the marker as the rest of the text
+        if attributedString.length > 0 {
+            let existingAttributes = attributedString.attributes(at: 0, effectiveRange: nil)
+            markerString.addAttributes(existingAttributes, range: NSRange(location: 0, length: markerString.length))
+        }
+        
+        // Insert marker at the beginning
+        attributedString.insert(markerString, at: 0)
+        
+        // Apply the paragraph style to the entire string
+        let fullRange = NSRange(location: 0, length: attributedString.length)
+        attributedString.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
+        
+        // Add Word-specific RTF attributes for better compatibility
+        // These attributes help Word recognize the structure when pasting RTF
+        let listAttributes: [NSAttributedString.Key: Any] = [
+            .init(rawValue: "RTFListLevel"): level,
+            .init(rawValue: "RTFListType"): isOrdered ? "numbered" : "bulleted",
+            .init(rawValue: "RTFListID"): listId
+        ]
+        
+        attributedString.addAttributes(listAttributes, range: fullRange)
+        
+        // For ordered lists, track the number for continuation
+        if isOrdered, let number = itemNumber {
+            attributedString.addAttribute(.init(rawValue: "RTFListItemNumber"), value: number, range: fullRange)
+        }
     }
 }
