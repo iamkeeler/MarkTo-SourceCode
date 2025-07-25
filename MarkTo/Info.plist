@@ -1,7 +1,4 @@
-<?xml ve	<key>CFBundleVersion</key>
-	<string>5</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.0.3</string>n="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -10,9 +7,9 @@
 	<key>CFBundleName</key>
 	<string>MarkTo</string>
 	<key>CFBundleVersion</key>
-	<string>3</string>
+	<string>12</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.1</string>
+	<string>1.0.2</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.attachdesign.markto</string>
 	<key>LSApplicationCategoryType</key>
