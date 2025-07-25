@@ -205,7 +205,7 @@ class MarkdownParser {
         
         // Regular paragraph - this breaks lists unless it's clearly a continuation
         context.listContext.reset()
-        return inlineProcessor.processInlineMarkdown(trimmedLine, baseFont: context.baseFont, codeFont: context.codeFont)
+        return processRegularText(line, context: context)
     }
     
     // MARK: - Specialized Parsing Methods
@@ -259,5 +259,24 @@ class MarkdownParser {
             context.codeBlockLanguage = nil
             return (content: NSAttributedString(string: ""), nextIndex: startIndex + 1)
         }
+    }
+    
+    // MARK: - Text Processing Helpers
+    
+    private func processRegularText(_ line: String, context: ParsingContext) -> NSAttributedString {
+        let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+        
+        // Check for double-space line break (markdown line break)
+        if line.hasSuffix("  ") && !trimmedLine.isEmpty {
+            let textWithoutTrailingSpaces = String(line.dropLast(2))
+            let content = inlineProcessor.processInlineMarkdown(textWithoutTrailingSpaces, baseFont: context.baseFont, codeFont: context.codeFont)
+            let result = NSMutableAttributedString()
+            result.append(content)
+            result.append(NSAttributedString(string: "\n"))  // Hard line break
+            return result
+        }
+        
+        // Regular paragraph text
+        return inlineProcessor.processInlineMarkdown(trimmedLine, baseFont: context.baseFont, codeFont: context.codeFont)
     }
 }
