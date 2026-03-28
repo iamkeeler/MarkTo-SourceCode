@@ -135,28 +135,11 @@ class TableProcessor {
     // MARK: - RTF Table Generation
     
     private func generateRTFTable(from tableData: TableData, context: ParsingContext) -> NSAttributedString {
-        // Try HTML table approach first - many apps recognize HTML table structure better than RTF
-        let htmlTable = generateHTMLTable(from: tableData)
-        
-        // Convert HTML to NSAttributedString
-        if let htmlData = htmlTable.data(using: .utf8),
-           let attributedString = try? NSAttributedString(
-            data: htmlData,
-            options: [
-                .documentType: NSAttributedString.DocumentType.html,
-                .characterEncoding: String.Encoding.utf8.rawValue
-            ],
-            documentAttributes: nil
-           ) {
-            return attributedString
-        } else {
-            // HTML parsing failed, fall back to plain text table
-            return generatePlainTextTable(from: tableData, context: context)
-        }
+        // Native RTF table generation using NSTextTable
+        return generateNativeRTFTable(from: tableData, context: context)
     }
+
     
-    /*
-    // TODO: Fix NSTextTable API usage - currently has compilation errors
     private func generateNativeRTFTable(from tableData: TableData, context: ParsingContext) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
@@ -170,10 +153,8 @@ class TableProcessor {
         textTable.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.1)
         
         // Set column widths to be equal
-        let columnWidth = 100.0 / Double(tableData.maxColumns)
-        for i in 0..<tableData.maxColumns {
-            textTable.setWidth(columnWidth, type: .percentageValueType, for: NSTextTableBlock.horizontalAlignment.natural)
-        }
+        // Set column widths indirectly through content width if needed, or rely on automatic layout
+        textTable.setContentWidth(100.0, type: .percentageValueType)
         
         // Add header row if present
         if tableData.hasHeader && !tableData.headerRow.isEmpty {
@@ -201,9 +182,8 @@ class TableProcessor {
         
         return result
     }
-    */
-    /*
-    // TODO: Fix NSTextTable API usage - part of native RTF table generation
+
+
     private func createTableRow(
         cells: [String],
         table: NSTextTable,
@@ -220,22 +200,22 @@ class TableProcessor {
             let cellBlock = NSTextTableBlock(table: table, startingRow: 0, rowSpan: 1, startingColumn: columnIndex, columnSpan: 1)
             
             // Configure cell appearance
-            cellBlock.setBorderColor(NSColor.separatorColor, for: .borderAll)
-            cellBlock.setBorderWidth(0.5, for: .borderAll)
-            cellBlock.setContentWidth(100.0, type: .percentageValueType, for: .width)
+            cellBlock.setBorderColor(NSColor.separatorColor)
+            cellBlock.setWidth(0.5, type: .absoluteValueType, for: .border)
+            cellBlock.setContentWidth(100.0, type: .percentageValueType)
             
             // Set cell background
             if isHeader {
-                cellBlock.setBackgroundColor(NSColor.controlBackgroundColor.withAlphaComponent(0.3), for: .cell)
+                cellBlock.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.3)
             } else {
-                cellBlock.setBackgroundColor(NSColor.controlBackgroundColor.withAlphaComponent(0.05), for: .cell)
+                cellBlock.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.05)
             }
             
             // Set cell padding
-            cellBlock.setContentWidth(4.0, type: .absoluteValueType, for: .paddingLeft)
-            cellBlock.setContentWidth(4.0, type: .absoluteValueType, for: .paddingRight)
-            cellBlock.setContentWidth(2.0, type: .absoluteValueType, for: .paddingTop)
-            cellBlock.setContentWidth(2.0, type: .absoluteValueType, for: .paddingBottom)
+            cellBlock.setWidth(4.0, type: .absoluteValueType, for: .padding, edge: .minX)
+            cellBlock.setWidth(4.0, type: .absoluteValueType, for: .padding, edge: .maxX)
+            cellBlock.setWidth(2.0, type: .absoluteValueType, for: .padding, edge: .minY)
+            cellBlock.setWidth(2.0, type: .absoluteValueType, for: .padding, edge: .maxY)
             
             // Create paragraph style with table block
             let paragraphStyle = NSMutableParagraphStyle()
@@ -263,7 +243,7 @@ class TableProcessor {
         
         return result
     }
-    */
+
     
     private func generateHTMLTable(from tableData: TableData) -> String {
         var html = "<table border='1' cellpadding='4' cellspacing='0' style='border-collapse: collapse;'>"
