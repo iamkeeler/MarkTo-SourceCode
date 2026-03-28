@@ -124,7 +124,7 @@ class TableProcessor {
         return cells
     }
     
-    private func isHeaderSeparator(_ line: String) -> Bool {
+    internal func isHeaderSeparator(_ line: String) -> Bool {
         let validChars = CharacterSet(charactersIn: "|-: ")
         let lineCharSet = CharacterSet(charactersIn: line)
         
