@@ -162,7 +162,7 @@ class TableProcessor {
         // Create the table using NSTextTable (proper RTF table structure)
         let textTable = NSTextTable()
         textTable.numberOfColumns = tableData.maxColumns
-        textTable.layoutAlgorithm = .automaticLayout
+        textTable.layoutAlgorithm = .automaticLayoutAlgorithm
         textTable.collapsesBorders = true
         
         // Add header row if present
@@ -252,13 +252,9 @@ class TableProcessor {
             result.append(cellAttributedString)
             
             // Add paragraph break after each cell
-
-
-            }
+            result.append(NSAttributedString(string: "\n"))
         }
         
-"))
-
         return result
     }
     
@@ -331,7 +327,7 @@ class TableProcessor {
                 }
             }
             result.append(headerString)
-            \n"))
+            result.append(NSAttributedString(string: "\n"))
             
             // Add separator line
             var separatorLine = ""
@@ -359,7 +355,7 @@ class TableProcessor {
                 }
             }
             result.append(rowString)
-            \n"))
+            result.append(NSAttributedString(string: "\n"))
         }
         
         return result
