@@ -33,6 +33,9 @@ class MarkdownParser {
     private let baseFont: NSFont
     private let codeFont: NSFont
     
+    // Cached common strings to avoid reallocation
+    private static let newlineString = NSAttributedString(string: "\n")
+
     init(baseFont: NSFont = NSFont.systemFont(ofSize: 14),
          codeFont: NSFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)) {
         
@@ -110,7 +113,7 @@ class MarkdownParser {
                         .backgroundColor: NSColor.controlBackgroundColor
                     ]
                 ))
-                result.append(NSAttributedString(string: "\n"))
+                result.append(MarkdownParser.newlineString)
                 i += 1
                 continue
             }
@@ -118,7 +121,7 @@ class MarkdownParser {
             // Parse the line based on its type
             let lineContent = parseLine(line, context: context, lines: lines, currentIndex: &i)
             result.append(lineContent)
-            result.append(NSAttributedString(string: "\n"))
+            result.append(MarkdownParser.newlineString)
             
             i += 1
         }
@@ -216,9 +219,9 @@ class MarkdownParser {
     private func handleEmptyLine(_ result: NSMutableAttributedString, context: ParsingContext) {
         if context.listContext.isInList {
             // Add reduced spacing within lists
-            result.append(NSAttributedString(string: "\n"))
+            result.append(MarkdownParser.newlineString)
         } else {
-            result.append(NSAttributedString(string: "\n"))
+            result.append(MarkdownParser.newlineString)
         }
     }
     
@@ -276,7 +279,7 @@ class MarkdownParser {
             let content = inlineProcessor.processInlineMarkdown(textWithoutTrailingSpaces, baseFont: context.baseFont, codeFont: context.codeFont)
             let result = NSMutableAttributedString()
             result.append(content)
-            result.append(NSAttributedString(string: "\n"))  // Hard line break
+            result.append(MarkdownParser.newlineString)  // Hard line break
             return result
         }
         
