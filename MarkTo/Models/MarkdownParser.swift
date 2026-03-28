@@ -78,7 +78,8 @@ class MarkdownParser {
         let result = NSMutableAttributedString()
         var i = 0
         
-        while i < lines.count {
+        let lineCount = lines.count
+        while i < lineCount {
             let line = lines[i]
             let trimmedLine = line.trimmingCharacters(in: .whitespaces)
             
@@ -235,7 +236,8 @@ class MarkdownParser {
             var codeLines: [String] = []
             var i = startIndex + 1
             
-            while i < lines.count {
+            let lineCount = lines.count
+            while i < lineCount {
                 let line = lines[i]
                 if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
                     // Found closing marker
