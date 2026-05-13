@@ -221,4 +221,57 @@ final class TableConversionTests: XCTestCase {
             XCTFail("Table conversion failed: \(error)")
         }
     }
+
+    func testMalformedHeaderSeparator() {
+        let markdownNoDash = """
+        | Name | Age |
+        | :  : |  :  |
+        | John | 25  |
+        """
+
+        let resultNoDash = converter.convertToRTF(markdownNoDash)
+
+        switch resultNoDash {
+        case .success(let attributedString):
+            let string = attributedString.string
+            XCTAssertTrue(string.contains("Name"), "Table header data should be present as normal row")
+            XCTAssertTrue(string.contains(":  :"), "Invalid separator should be present as data")
+            XCTAssertFalse(string.contains("─"), "Table should not have header row separators since it lacks a valid separator")
+        case .failure(let error):
+            XCTFail("Table conversion failed: \(error)")
+        }
+
+        let markdownInvalidChars = """
+        | Name | Age |
+        |--x---|-----|
+        | John | 25  |
+        """
+
+        let resultInvalidChars = converter.convertToRTF(markdownInvalidChars)
+
+        switch resultInvalidChars {
+        case .success(let attributedString):
+            let string = attributedString.string
+            XCTAssertTrue(string.contains("--x---"), "Invalid separator with invalid characters should be treated as data")
+            XCTAssertFalse(string.contains("─"), "Table should not have header row separators since it lacks a valid separator")
+        case .failure(let error):
+            XCTFail("Table conversion failed: \(error)")
+        }
+    }
+
+    func testIsHeaderSeparatorDirectly() {
+        let inlineProcessor = InlineProcessor()
+        let tableProcessor = TableProcessor(inlineProcessor: inlineProcessor)
+
+        // Valid separators
+        XCTAssertTrue(tableProcessor.isHeaderSeparator(" |---|---| "), "Standard separator should be valid")
+        XCTAssertTrue(tableProcessor.isHeaderSeparator("|:--:|:--|"), "Colons in separator should be valid")
+        XCTAssertTrue(tableProcessor.isHeaderSeparator("---"), "Simple dashes should be valid")
+
+        // Invalid separators
+        XCTAssertFalse(tableProcessor.isHeaderSeparator("| : | : |"), "Missing dash should be invalid")
+        XCTAssertFalse(tableProcessor.isHeaderSeparator("|---x---|"), "Invalid character 'x' should be invalid")
+        XCTAssertFalse(tableProcessor.isHeaderSeparator("====="), "Equals signs instead of dashes should be invalid")
+        XCTAssertFalse(tableProcessor.isHeaderSeparator(""), "Empty string should be invalid")
+    }
 }
