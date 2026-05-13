@@ -135,27 +135,11 @@ class TableProcessor {
     // MARK: - RTF Table Generation
     
     private func generateRTFTable(from tableData: TableData, context: ParsingContext) -> NSAttributedString {
-        // Try HTML table approach first - many apps recognize HTML table structure better than RTF
-        let htmlTable = generateHTMLTable(from: tableData)
-        
-        // Convert HTML to NSAttributedString
-        if let htmlData = htmlTable.data(using: .utf8),
-           let attributedString = try? NSAttributedString(
-            data: htmlData,
-            options: [
-                .documentType: NSAttributedString.DocumentType.html,
-                .characterEncoding: String.Encoding.utf8.rawValue
-            ],
-            documentAttributes: nil
-           ) {
-            return attributedString
-        } else {
-            // HTML parsing failed, fall back to plain text table
-            return generatePlainTextTable(from: tableData, context: context)
-        }
+        // Native RTF table generation using NSTextTable
+        return generateNativeRTFTable(from: tableData, context: context)
     }
+
     
-    // TODO: Fix NSTextTable API usage - currently has compilation errors
     private func generateNativeRTFTable(from tableData: TableData, context: ParsingContext) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
@@ -164,6 +148,13 @@ class TableProcessor {
         textTable.numberOfColumns = tableData.maxColumns
         textTable.layoutAlgorithm = .automaticLayoutAlgorithm
         textTable.collapsesBorders = true
+        
+        // Configure table appearance
+        textTable.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.1)
+        
+        // Set column widths to be equal
+        // Set column widths indirectly through content width if needed, or rely on automatic layout
+        textTable.setContentWidth(100.0, type: .percentageValueType)
         
         // Add header row if present
         if tableData.hasHeader && !tableData.headerRow.isEmpty {
@@ -195,7 +186,7 @@ class TableProcessor {
         return result
     }
 
-    // TODO: Fix NSTextTable API usage - part of native RTF table generation
+
     private func createTableRow(
         cells: [String],
         table: NSTextTable,
@@ -213,10 +204,9 @@ class TableProcessor {
             let cellBlock = NSTextTableBlock(table: table, startingRow: rowIndex, rowSpan: 1, startingColumn: columnIndex, columnSpan: 1)
             
             // Configure cell appearance
-            let borderColor = NSColor.separatorColor
-            cellBlock.setBorderColor(borderColor)
-
+            cellBlock.setBorderColor(NSColor.separatorColor)
             cellBlock.setWidth(0.5, type: .absoluteValueType, for: .border)
+            cellBlock.setContentWidth(100.0, type: .percentageValueType)
             
             // Set cell background
             if isHeader {
@@ -257,6 +247,7 @@ class TableProcessor {
         
         return result
     }
+
     
     private func generateHTMLTable(from tableData: TableData) -> String {
         var html = "<table border='1' cellpadding='4' cellspacing='0' style='border-collapse: collapse;'>"
