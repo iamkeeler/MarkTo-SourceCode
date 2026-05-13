@@ -33,8 +33,8 @@ final class TableConversionTests: XCTestCase {
             XCTAssertTrue(string.contains("City"), "Table header should be present")
             XCTAssertTrue(string.contains("John"), "Table data should be present")
             XCTAssertTrue(string.contains("Jane"), "Table data should be present")
-            XCTAssertTrue(string.contains("│"), "Table should have column separators")
-            XCTAssertTrue(string.contains("─"), "Table should have row separators")
+
+            // Native RTF tables use NSTextTable attributes, not plain text separators
         case .failure(let error):
             XCTFail("Table conversion failed: \(error)")
         }
@@ -105,7 +105,6 @@ final class TableConversionTests: XCTestCase {
             XCTAssertTrue(string.contains("Title"), "Table content should be present")
             XCTAssertTrue(string.contains("Paragraph"), "Table content should be present")
             XCTAssertTrue(string.contains("Text"), "Table content should be present")
-            XCTAssertTrue(string.contains("│"), "Table should have column separators")
         case .failure(let error):
             XCTFail("Table conversion failed: \(error)")
         }
@@ -161,8 +160,6 @@ final class TableConversionTests: XCTestCase {
             XCTAssertTrue(string.contains("B"), "Table header should be present")
             XCTAssertTrue(string.contains("1"), "Table data should be present")
             XCTAssertTrue(string.contains("2"), "Table data should be present")
-            XCTAssertTrue(string.contains("│"), "Table should have column separators")
-            XCTAssertTrue(string.contains("─"), "Table should have row separators")
         case .failure(let error):
             XCTFail("Table conversion failed: \(error)")
         }
@@ -179,9 +176,16 @@ final class TableConversionTests: XCTestCase {
         
         switch result {
         case .success(let attributedString):
-            let string = attributedString.string
-            XCTAssertTrue(string.contains("│"), "Table should have column separators even if empty")
-            XCTAssertTrue(string.contains("─"), "Table should have row separators even if empty")
+            // In native RTF, an empty table might just be newlines with table block attributes
+            XCTAssertGreaterThan(attributedString.length, 0, "Table should generate content even if empty")
+
+            var foundTableBlock = false
+            attributedString.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: attributedString.length)) { value, _, _ in
+                if let style = value as? NSParagraphStyle, !style.textBlocks.isEmpty {
+                    foundTableBlock = true
+                }
+            }
+            XCTAssertTrue(foundTableBlock, "Empty table should still have table block attributes")
         case .failure(let error):
             XCTFail("Table conversion failed: \(error)")
         }
@@ -215,8 +219,6 @@ final class TableConversionTests: XCTestCase {
             XCTAssertTrue(string.contains("John"), "Table data should be present")
             XCTAssertTrue(string.contains("This is a paragraph after"), "Content after table should be present")
             XCTAssertTrue(string.contains("List item 1"), "List content should be present")
-            XCTAssertTrue(string.contains("│"), "Table should have column separators")
-            XCTAssertTrue(string.contains("─"), "Table should have row separators")
         case .failure(let error):
             XCTFail("Table conversion failed: \(error)")
         }
@@ -236,7 +238,15 @@ final class TableConversionTests: XCTestCase {
             let string = attributedString.string
             XCTAssertTrue(string.contains("Name"), "Table header data should be present as normal row")
             XCTAssertTrue(string.contains(":  :"), "Invalid separator should be present as data")
-            XCTAssertFalse(string.contains("─"), "Table should not have header row separators since it lacks a valid separator")
+
+            // Check that it's NOT a table (no table blocks)
+            var foundTableBlock = false
+            attributedString.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: attributedString.length)) { value, _, _ in
+                if let style = value as? NSParagraphStyle, !style.textBlocks.isEmpty {
+                    foundTableBlock = true
+                }
+            }
+            XCTAssertFalse(foundTableBlock, "Malformed table should not have table block attributes")
         case .failure(let error):
             XCTFail("Table conversion failed: \(error)")
         }
@@ -253,7 +263,15 @@ final class TableConversionTests: XCTestCase {
         case .success(let attributedString):
             let string = attributedString.string
             XCTAssertTrue(string.contains("--x---"), "Invalid separator with invalid characters should be treated as data")
-            XCTAssertFalse(string.contains("─"), "Table should not have header row separators since it lacks a valid separator")
+
+            // Check that it's NOT a table (no table blocks)
+            var foundTableBlock = false
+            attributedString.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: attributedString.length)) { value, _, _ in
+                if let style = value as? NSParagraphStyle, !style.textBlocks.isEmpty {
+                    foundTableBlock = true
+                }
+            }
+            XCTAssertFalse(foundTableBlock, "Malformed table with invalid chars should not have table block attributes")
         case .failure(let error):
             XCTFail("Table conversion failed: \(error)")
         }

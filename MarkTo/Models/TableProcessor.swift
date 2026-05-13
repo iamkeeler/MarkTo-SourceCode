@@ -135,27 +135,10 @@ class TableProcessor {
     // MARK: - RTF Table Generation
     
     private func generateRTFTable(from tableData: TableData, context: ParsingContext) -> NSAttributedString {
-        // Try HTML table approach first - many apps recognize HTML table structure better than RTF
-        let htmlTable = generateHTMLTable(from: tableData)
-        
-        // Convert HTML to NSAttributedString
-        if let htmlData = htmlTable.data(using: .utf8),
-           let attributedString = try? NSAttributedString(
-            data: htmlData,
-            options: [
-                .documentType: NSAttributedString.DocumentType.html,
-                .characterEncoding: String.Encoding.utf8.rawValue
-            ],
-            documentAttributes: nil
-           ) {
-            return attributedString
-        } else {
-            // HTML parsing failed, fall back to plain text table
-            return generatePlainTextTable(from: tableData, context: context)
-        }
+        // Use native RTF table generation as it provides better integration with Rich Text editors
+        return generateNativeRTFTable(from: tableData, context: context)
     }
     
-    // TODO: Fix NSTextTable API usage - currently has compilation errors
     private func generateNativeRTFTable(from tableData: TableData, context: ParsingContext) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
@@ -195,7 +178,6 @@ class TableProcessor {
         return result
     }
 
-    // TODO: Fix NSTextTable API usage - part of native RTF table generation
     private func createTableRow(
         cells: [String],
         table: NSTextTable,
@@ -213,10 +195,13 @@ class TableProcessor {
             let cellBlock = NSTextTableBlock(table: table, startingRow: rowIndex, rowSpan: 1, startingColumn: columnIndex, columnSpan: 1)
             
             // Configure cell appearance
-            let borderColor = NSColor.separatorColor
-            cellBlock.setBorderColor(borderColor)
+            let borderColor = NSColor.separator
+            let edges: [NSRectEdge] = [.minX, .maxX, .minY, .maxY]
 
-            cellBlock.setWidth(0.5, type: .absoluteValueType, for: .border)
+            for edge in edges {
+                cellBlock.setBorderColor(borderColor, for: edge)
+                cellBlock.setWidth(0.5, type: .absoluteValue, for: .border, edge: edge)
+            }
             
             // Set cell background
             if isHeader {
@@ -226,10 +211,10 @@ class TableProcessor {
             }
             
             // Set cell padding
-            cellBlock.setWidth(4.0, type: .absoluteValueType, for: .padding, edge: .minX)
-            cellBlock.setWidth(4.0, type: .absoluteValueType, for: .padding, edge: .maxX)
-            cellBlock.setWidth(2.0, type: .absoluteValueType, for: .padding, edge: .minY)
-            cellBlock.setWidth(2.0, type: .absoluteValueType, for: .padding, edge: .maxY)
+            cellBlock.setWidth(4.0, type: .absoluteValue, for: .padding, edge: .minX)
+            cellBlock.setWidth(4.0, type: .absoluteValue, for: .padding, edge: .maxX)
+            cellBlock.setWidth(2.0, type: .absoluteValue, for: .padding, edge: .minY)
+            cellBlock.setWidth(2.0, type: .absoluteValue, for: .padding, edge: .maxY)
             
             // Create paragraph style with table block
             let paragraphStyle = NSMutableParagraphStyle()
@@ -238,21 +223,24 @@ class TableProcessor {
             // Set text alignment
             paragraphStyle.alignment = .natural
             
-            // Create attributed string for cell content
-            let font = isHeader ? NSFont.boldSystemFont(ofSize: 13) : NSFont.systemFont(ofSize: 13)
-            let cellAttributedString = NSAttributedString(
-                string: cellContent,
-                attributes: [
-                    .font: font,
-                    .paragraphStyle: paragraphStyle,
-                    .foregroundColor: NSColor.textColor
-                ]
-            )
+            // Create attributed string for cell content with markdown support
+            let baseFont = isHeader ? NSFont.boldSystemFont(ofSize: context.baseFont.pointSize) : context.baseFont
+            let cellAttributedString = NSMutableAttributedString(attributedString: inlineProcessor.processInlineMarkdown(
+                cellContent,
+                baseFont: baseFont,
+                codeFont: context.codeFont
+            ))
             
+            // Add paragraph break after each cell (required by NSTextTableBlock layout)
+            // It must have the paragraph style with textBlocks to be recognized as part of the table
+            cellAttributedString.append(NSAttributedString(string: "\n"))
+            
+            // Apply paragraph style and text color to the entire cell content, including the newline
+            let fullRange = NSRange(location: 0, length: cellAttributedString.length)
+            cellAttributedString.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
+            cellAttributedString.addAttribute(.foregroundColor, value: NSColor.textColor, range: fullRange)
+
             result.append(cellAttributedString)
-            
-            // Add paragraph break after each cell
-            result.append(NSAttributedString(string: "\n"))
         }
         
         return result
