@@ -159,32 +159,35 @@ class MarkdownParser {
         }
         
         // Check for unordered lists
-        if let listMatch = trimmedLine.range(of: #"^(\s*)([-*+])\s+"#, options: .regularExpression) {
-            let prefix = String(trimmedLine[..<listMatch.upperBound])
+        let nsTrimmedLine = trimmedLine as NSString
+        let range = NSRange(location: 0, length: nsTrimmedLine.length)
+
+        if let match = ParsingContext.unorderedListPattern.firstMatch(in: trimmedLine, options: [], range: range) {
+            let prefix = nsTrimmedLine.substring(with: match.range)
             let indentLevel = listProcessor.calculateIndentLevel(prefix)
-            let text = String(trimmedLine[listMatch.upperBound...])
+            let text = nsTrimmedLine.substring(from: match.range.upperBound)
             context.listContext.updateWith(level: indentLevel, type: .unordered)
             return listProcessor.createUnorderedListItem(text, level: indentLevel, context: context)
         }
         
         // Check for ordered lists
-        if let numberMatch = trimmedLine.range(of: #"^(\s*)(\d+)\.\s+"#, options: .regularExpression) {
-            let prefix = String(trimmedLine[..<numberMatch.upperBound])
+        if let match = ParsingContext.orderedListPattern.firstMatch(in: trimmedLine, options: [], range: range) {
+            let prefix = nsTrimmedLine.substring(with: match.range)
             let indentLevel = listProcessor.calculateIndentLevel(prefix)
-            let numberText = String(trimmedLine[numberMatch]).trimmingCharacters(in: .whitespaces)
+            let numberText = nsTrimmedLine.substring(with: match.range).trimmingCharacters(in: .whitespaces)
             let number = String(numberText.dropLast()) // Remove the dot
-            let text = String(trimmedLine[numberMatch.upperBound...])
+            let text = nsTrimmedLine.substring(from: match.range.upperBound)
             context.listContext.updateWith(level: indentLevel, type: .ordered)
             return listProcessor.createOrderedListItem(text, number: number, level: indentLevel, context: context)
         }
         
         // Check for task lists
-        if let taskMatch = trimmedLine.range(of: #"^(\s*)([-*+])\s*\[([ xX])\]\s+"#, options: .regularExpression) {
-            let prefix = String(trimmedLine[..<taskMatch.upperBound])
+        if let match = ParsingContext.taskListPattern.firstMatch(in: trimmedLine, options: [], range: range) {
+            let prefix = nsTrimmedLine.substring(with: match.range)
             let indentLevel = listProcessor.calculateIndentLevel(prefix)
-            let checkbox = String(trimmedLine[taskMatch])
+            let checkbox = nsTrimmedLine.substring(with: match.range)
             let isChecked = checkbox.contains("x") || checkbox.contains("X")
-            let text = String(trimmedLine[taskMatch.upperBound...])
+            let text = nsTrimmedLine.substring(from: match.range.upperBound)
             context.listContext.updateWith(level: indentLevel, type: .task)
             return listProcessor.createTaskListItem(text, isChecked: isChecked, level: indentLevel, context: context)
         }

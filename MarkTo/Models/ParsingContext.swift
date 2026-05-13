@@ -26,6 +26,12 @@ class ParsingContext {
     static let horizontalRulePattern = try! NSRegularExpression(pattern: #"^(\s{0,3})([-*_])\s*(\2\s*){2,}$"#)
     static let codeBlockPattern = try! NSRegularExpression(pattern: #"^```"#)
     
+    // Trimmed versions for optimized matching on pre-trimmed lines
+    static let unorderedListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+])\s"#)
+    static let orderedListTrimmedPattern = try! NSRegularExpression(pattern: #"^\d+\.\s"#)
+    static let taskListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+])\s*\[([ xX])\]\s"#)
+    static let anyListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+]|\d+\.)\s+"#)
+
     init(baseFont: NSFont = NSFont.systemFont(ofSize: 14), 
          codeFont: NSFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)) {
         self.baseFont = baseFont
