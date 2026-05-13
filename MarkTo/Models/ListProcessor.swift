@@ -174,9 +174,10 @@ class ListProcessor {
         // Lines that start with significant whitespace and aren't new list items are continuations
         if line.hasPrefix("  ") || line.hasPrefix("\t") {
             // Make sure it's not a new list item
-            let isNewUnorderedList = trimmed.range(of: #"^([-*+])\s"#, options: .regularExpression) != nil
-            let isNewOrderedList = trimmed.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil
-            let isTaskList = trimmed.range(of: #"^([-*+])\s*\[([ xX])\]\s"#, options: .regularExpression) != nil
+            let range = NSRange(location: 0, length: (trimmed as NSString).length)
+            let isNewUnorderedList = ParsingContext.unorderedListTrimmedPattern.firstMatch(in: trimmed, options: [], range: range) != nil
+            let isNewOrderedList = ParsingContext.orderedListTrimmedPattern.firstMatch(in: trimmed, options: [], range: range) != nil
+            let isTaskList = ParsingContext.taskListTrimmedPattern.firstMatch(in: trimmed, options: [], range: range) != nil
             
             if !isNewUnorderedList && !isNewOrderedList && !isTaskList {
                 return true
@@ -212,9 +213,10 @@ class ListProcessor {
     
     /// Check if trimmed line represents a new list item
     private func isNewListItem(_ trimmed: String) -> Bool {
-        let isUnordered = trimmed.range(of: #"^([-*+])\s"#, options: .regularExpression) != nil
-        let isOrdered = trimmed.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil
-        let isTask = trimmed.range(of: #"^([-*+])\s*\[([ xX])\]\s"#, options: .regularExpression) != nil
+        let range = NSRange(location: 0, length: (trimmed as NSString).length)
+        let isUnordered = ParsingContext.unorderedListTrimmedPattern.firstMatch(in: trimmed, options: [], range: range) != nil
+        let isOrdered = ParsingContext.orderedListTrimmedPattern.firstMatch(in: trimmed, options: [], range: range) != nil
+        let isTask = ParsingContext.taskListTrimmedPattern.firstMatch(in: trimmed, options: [], range: range) != nil
         let isDefinition = trimmed.hasPrefix(": ")
         
         return isUnordered || isOrdered || isTask || isDefinition
@@ -223,16 +225,18 @@ class ListProcessor {
     /// Get appropriate list level from line content
     func getListLevel(_ line: String) -> Int {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let nsTrimmed = trimmed as NSString
+        let range = NSRange(location: 0, length: nsTrimmed.length)
         
         // Find the list marker and calculate indent level
-        if let match = trimmed.range(of: #"^(\s*)([-*+]|\d+\.)\s+"#, options: .regularExpression) {
-            let prefix = trimmed[..<match.upperBound]
+        if let match = ParsingContext.anyListTrimmedPattern.firstMatch(in: trimmed, options: [], range: range) {
+            let prefix = nsTrimmed.substring(with: match.range)
             return calculateIndentLevel(prefix)
         }
         
         // For task lists
-        if let match = trimmed.range(of: #"^(\s*)([-*+])\s*\[([ xX])\]\s+"#, options: .regularExpression) {
-            let prefix = trimmed[..<match.upperBound]
+        if let match = ParsingContext.taskListTrimmedPattern.firstMatch(in: trimmed, options: [], range: range) {
+            let prefix = nsTrimmed.substring(with: match.range)
             return calculateIndentLevel(prefix)
         }
         
