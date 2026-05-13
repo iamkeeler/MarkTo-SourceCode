@@ -193,9 +193,11 @@ class BlockProcessor {
     /// Extract header text (removing # markers)
     func getHeaderText(_ line: String) -> String {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let nsTrimmed = trimmed as NSString
+        let range = NSRange(location: 0, length: nsTrimmed.length)
         
-        if let headerMatch = trimmed.range(of: #"^#{1,6}\s+"#, options: .regularExpression) {
-            let text = String(trimmed[headerMatch.upperBound...])
+        if let match = ParsingContext.headerPattern.firstMatch(in: trimmed, options: [], range: range) {
+            let text = nsTrimmed.substring(from: match.range.upperBound)
             // Remove trailing # if present
             return text.trimmingCharacters(in: CharacterSet(charactersIn: "# "))
         }

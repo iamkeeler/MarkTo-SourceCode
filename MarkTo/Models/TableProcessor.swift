@@ -135,9 +135,10 @@ class TableProcessor {
     // MARK: - RTF Table Generation
     
     private func generateRTFTable(from tableData: TableData, context: ParsingContext) -> NSAttributedString {
-        // Use native RTF table generation as it provides better integration with Rich Text editors
+        // Native RTF table generation using NSTextTable
         return generateNativeRTFTable(from: tableData, context: context)
     }
+
     
     private func generateNativeRTFTable(from tableData: TableData, context: ParsingContext) -> NSAttributedString {
         let result = NSMutableAttributedString()
@@ -147,6 +148,13 @@ class TableProcessor {
         textTable.numberOfColumns = tableData.maxColumns
         textTable.layoutAlgorithm = .automaticLayoutAlgorithm
         textTable.collapsesBorders = true
+        
+        // Configure table appearance
+        textTable.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.1)
+        
+        // Set column widths to be equal
+        // Set column widths indirectly through content width if needed, or rely on automatic layout
+        textTable.setContentWidth(100.0, type: .percentageValueType)
         
         // Add header row if present
         if tableData.hasHeader && !tableData.headerRow.isEmpty {
@@ -178,6 +186,7 @@ class TableProcessor {
         return result
     }
 
+
     private func createTableRow(
         cells: [String],
         table: NSTextTable,
@@ -195,13 +204,9 @@ class TableProcessor {
             let cellBlock = NSTextTableBlock(table: table, startingRow: rowIndex, rowSpan: 1, startingColumn: columnIndex, columnSpan: 1)
             
             // Configure cell appearance
-            let borderColor = NSColor.separator
-            let edges: [NSRectEdge] = [.minX, .maxX, .minY, .maxY]
-
-            for edge in edges {
-                cellBlock.setBorderColor(borderColor, for: edge)
-                cellBlock.setWidth(0.5, type: .absoluteValue, for: .border, edge: edge)
-            }
+            cellBlock.setBorderColor(NSColor.separatorColor)
+            cellBlock.setWidth(0.5, type: .absoluteValueType, for: .border)
+            cellBlock.setContentWidth(100.0, type: .percentageValueType)
             
             // Set cell background
             if isHeader {
@@ -245,6 +250,7 @@ class TableProcessor {
         
         return result
     }
+
     
     private func generateHTMLTable(from tableData: TableData) -> String {
         var html = "<table border='1' cellpadding='4' cellspacing='0' style='border-collapse: collapse;'>"
