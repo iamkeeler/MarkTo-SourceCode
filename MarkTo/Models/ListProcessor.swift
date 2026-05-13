@@ -17,8 +17,8 @@ class ListProcessor {
     // MARK: - Public Methods
     
     /// Process unordered list item
-    func createUnorderedListItem(_ text: String, level: Int, context: ParsingContext) -> NSAttributedString {
-        let content = inlineProcessor.processInlineMarkdown(text, baseFont: context.baseFont, codeFont: context.codeFont)
+    func createUnorderedListItem<S: StringProtocol>(_ text: S, level: Int, context: ParsingContext) -> NSAttributedString {
+        let content = inlineProcessor.processInlineMarkdown(String(text), baseFont: context.baseFont, codeFont: context.codeFont)
         let result = NSMutableAttributedString(attributedString: content)
         
         // Get or create RTF list ID for this level and list type
@@ -48,15 +48,15 @@ class ListProcessor {
     }
     
     /// Process ordered list item
-    func createOrderedListItem(_ text: String, number: String, level: Int, context: ParsingContext) -> NSAttributedString {
-        let content = inlineProcessor.processInlineMarkdown(text, baseFont: context.baseFont, codeFont: context.codeFont)
+    func createOrderedListItem<S1: StringProtocol, S2: StringProtocol>(_ text: S1, number: S2, level: Int, context: ParsingContext) -> NSAttributedString {
+        let content = inlineProcessor.processInlineMarkdown(String(text), baseFont: context.baseFont, codeFont: context.codeFont)
         let result = NSMutableAttributedString(attributedString: content)
         
         // Get or create RTF list ID for this level and list type
         let listId = getOrCreateListId(level: level, isOrdered: true)
         
         // Get numeric value for proper numbering
-        let itemNumber = Int(number) ?? 1
+        let itemNumber = Int(String(number)) ?? 1
         
         // Create paragraph style with proper RTF list attributes for MS Word compatibility
         let paragraphStyle = NSMutableParagraphStyle()
@@ -82,13 +82,13 @@ class ListProcessor {
     }
     
     /// Process task list item (checkbox)
-    func createTaskListItem(_ text: String, isChecked: Bool, level: Int, context: ParsingContext) -> NSAttributedString {
+    func createTaskListItem<S: StringProtocol>(_ text: S, isChecked: Bool, level: Int, context: ParsingContext) -> NSAttributedString {
         let checkbox = isChecked ? "☑ " : "☐ "
         
         let result = NSMutableAttributedString(string: checkbox)
         result.addAttributes([.font: context.baseFont], range: NSRange(location: 0, length: result.length))
         
-        let content = inlineProcessor.processInlineMarkdown(text, baseFont: context.baseFont, codeFont: context.codeFont)
+        let content = inlineProcessor.processInlineMarkdown(String(text), baseFont: context.baseFont, codeFont: context.codeFont)
         let mutableContent = NSMutableAttributedString(attributedString: content)
         
         if isChecked {
@@ -139,7 +139,7 @@ class ListProcessor {
     // MARK: - List Detection and Analysis
     
     /// Calculate indentation level from line prefix
-    func calculateIndentLevel(_ prefix: String) -> Int {
+    func calculateIndentLevel<S: StringProtocol>(_ prefix: S) -> Int {
         // Count leading whitespace - support both spaces and tabs
         let spaces = prefix.filter { $0 == " " }.count
         let tabs = prefix.filter { $0 == "\t" }.count
@@ -226,13 +226,13 @@ class ListProcessor {
         
         // Find the list marker and calculate indent level
         if let match = trimmed.range(of: #"^(\s*)([-*+]|\d+\.)\s+"#, options: .regularExpression) {
-            let prefix = String(trimmed[..<match.upperBound])
+            let prefix = trimmed[..<match.upperBound]
             return calculateIndentLevel(prefix)
         }
         
         // For task lists
         if let match = trimmed.range(of: #"^(\s*)([-*+])\s*\[([ xX])\]\s+"#, options: .regularExpression) {
-            let prefix = String(trimmed[..<match.upperBound])
+            let prefix = trimmed[..<match.upperBound]
             return calculateIndentLevel(prefix)
         }
         

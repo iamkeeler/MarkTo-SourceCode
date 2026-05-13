@@ -124,7 +124,7 @@ class TableProcessor {
         return cells
     }
     
-    private func isHeaderSeparator(_ line: String) -> Bool {
+    internal func isHeaderSeparator(_ line: String) -> Bool {
         let validChars = CharacterSet(charactersIn: "|-: ")
         let lineCharSet = CharacterSet(charactersIn: line)
         
@@ -146,7 +146,7 @@ class TableProcessor {
         // Create the table using NSTextTable (proper RTF table structure)
         let textTable = NSTextTable()
         textTable.numberOfColumns = tableData.maxColumns
-        textTable.layoutAlgorithm = .automaticLayout
+        textTable.layoutAlgorithm = .automaticLayoutAlgorithm
         textTable.collapsesBorders = true
         
         // Configure table appearance
@@ -163,18 +163,21 @@ class TableProcessor {
                 table: textTable,
                 isHeader: true,
                 maxColumns: tableData.maxColumns,
+                rowIndex: 0,
                 context: context
             )
             result.append(headerRow)
         }
         
         // Add data rows
-        for row in tableData.dataRows {
+        for (rowIndex, row) in tableData.dataRows.enumerated() {
+            let actualRowIndex = tableData.hasHeader ? rowIndex + 1 : rowIndex
             let dataRow = createTableRow(
                 cells: row,
                 table: textTable,
                 isHeader: false,
                 maxColumns: tableData.maxColumns,
+                rowIndex: actualRowIndex,
                 context: context
             )
             result.append(dataRow)
@@ -189,6 +192,7 @@ class TableProcessor {
         table: NSTextTable,
         isHeader: Bool,
         maxColumns: Int,
+        rowIndex: Int,
         context: ParsingContext
     ) -> NSAttributedString {
         let result = NSMutableAttributedString()
@@ -197,7 +201,7 @@ class TableProcessor {
             let cellContent = columnIndex < cells.count ? cells[columnIndex] : ""
             
             // Create table cell block
-            let cellBlock = NSTextTableBlock(table: table, startingRow: 0, rowSpan: 1, startingColumn: columnIndex, columnSpan: 1)
+            let cellBlock = NSTextTableBlock(table: table, startingRow: rowIndex, rowSpan: 1, startingColumn: columnIndex, columnSpan: 1)
             
             // Configure cell appearance
             cellBlock.setBorderColor(NSColor.separatorColor)

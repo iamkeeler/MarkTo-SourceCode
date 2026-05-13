@@ -1,0 +1,24 @@
+--- MarkTo/Models/MarkdownParser.swift
++++ MarkTo/Models/MarkdownParser.swift
+@@ -79,8 +79,9 @@
+
+         let result = NSMutableAttributedString()
+         var i = 0
++        let totalLines = lines.count
+
+-        while i < lines.count {
++        while i < totalLines {
+             let line = lines[i]
+             let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+
+@@ -218,8 +219,9 @@
+             // Look for the closing ```
+             var codeLines: [String] = []
+             var i = startIndex + 1
++            let totalLines = lines.count
+
+-            while i < lines.count {
++            while i < totalLines {
+                 let line = lines[i]
+                 if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                     // Found closing marker

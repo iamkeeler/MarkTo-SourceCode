@@ -52,7 +52,8 @@ class InlineProcessor {
     
     private func processStrikethrough(in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         let string = attributedString.string
-        let range = NSRange(location: 0, length: string.count)
+        let nsString = string as NSString
+        let range = NSRange(location: 0, length: nsString.length)
         
         let matches = Self.strikethroughPattern.matches(in: string, range: range)
         
@@ -61,18 +62,15 @@ class InlineProcessor {
             let fullRange = match.range
             let contentRange = match.range(at: 1)
             
-            if let contentSwiftRange = Range(contentRange, in: string) {
-                let content = String(string[contentSwiftRange])
-                
-                // Replace with styled content
-                attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
-                    string: content,
-                    attributes: [
-                        .font: baseFont,
-                        .strikethroughStyle: NSUnderlineStyle.single.rawValue
+            let content = nsString.substring(with: contentRange)
+            // Replace with styled content
+            attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
+                string: content,
+                attributes: [
+                    .font: baseFont,
+                    .strikethroughStyle: NSUnderlineStyle.single.rawValue
                     ]
-                ))
-            }
+            ))
         }
     }
     
@@ -86,7 +84,8 @@ class InlineProcessor {
     
     private func processBoldPattern(_ pattern: NSRegularExpression, in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         let string = attributedString.string
-        let range = NSRange(location: 0, length: string.count)
+        let nsString = string as NSString
+        let range = NSRange(location: 0, length: nsString.length)
         
         let matches = pattern.matches(in: string, range: range)
         
@@ -94,15 +93,13 @@ class InlineProcessor {
             let fullRange = match.range
             let contentRange = match.range(at: 1)
             
-            if let contentSwiftRange = Range(contentRange, in: string) {
-                let content = String(string[contentSwiftRange])
-                let boldFont = NSFont.boldSystemFont(ofSize: baseFont.pointSize)
+            let content = nsString.substring(with: contentRange)
+            let boldFont = NSFont.boldSystemFont(ofSize: baseFont.pointSize)
                 
-                attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
-                    string: content,
-                    attributes: [.font: boldFont]
-                ))
-            }
+            attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
+                string: content,
+                attributes: [.font: boldFont]
+            ))
         }
     }
     
@@ -113,7 +110,8 @@ class InlineProcessor {
     
     private func processItalicPattern(_ pattern: NSRegularExpression, in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         let string = attributedString.string
-        let range = NSRange(location: 0, length: string.count)
+        let nsString = string as NSString
+        let range = NSRange(location: 0, length: nsString.length)
         
         let matches = pattern.matches(in: string, range: range)
         
@@ -121,21 +119,20 @@ class InlineProcessor {
             let fullRange = match.range
             let contentRange = match.range(at: 1)
             
-            if let contentSwiftRange = Range(contentRange, in: string) {
-                let content = String(string[contentSwiftRange])
-                let italicFont = NSFontManager.shared.convert(baseFont, toHaveTrait: .italicFontMask)
+            let content = nsString.substring(with: contentRange)
+            let italicFont = NSFontManager.shared.convert(baseFont, toHaveTrait: .italicFontMask)
                 
-                attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
-                    string: content,
-                    attributes: [.font: italicFont]
-                ))
-            }
+            attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
+                string: content,
+                attributes: [.font: italicFont]
+            ))
         }
     }
     
     private func processCode(in attributedString: NSMutableAttributedString, codeFont: NSFont) {
         let string = attributedString.string
-        let range = NSRange(location: 0, length: string.count)
+        let nsString = string as NSString
+        let range = NSRange(location: 0, length: nsString.length)
         
         let matches = Self.codePattern.matches(in: string, range: range)
         
@@ -143,23 +140,21 @@ class InlineProcessor {
             let fullRange = match.range
             let contentRange = match.range(at: 1)
             
-            if let contentSwiftRange = Range(contentRange, in: string) {
-                let content = String(string[contentSwiftRange])
-                
-                attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
-                    string: content,
-                    attributes: [
-                        .font: codeFont,
-                        .backgroundColor: NSColor.controlBackgroundColor
+            let content = nsString.substring(with: contentRange)
+            attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
+                string: content,
+                attributes: [
+                    .font: codeFont,
+                    .backgroundColor: NSColor.controlBackgroundColor
                     ]
-                ))
-            }
+            ))
         }
     }
     
     private func processLinks(in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         let string = attributedString.string
-        let range = NSRange(location: 0, length: string.count)
+        let nsString = string as NSString
+        let range = NSRange(location: 0, length: nsString.length)
         
         let matches = Self.linkPattern.matches(in: string, range: range)
         
@@ -168,31 +163,28 @@ class InlineProcessor {
             let textRange = match.range(at: 1)
             let urlRange = match.range(at: 2)
             
-            if let textSwiftRange = Range(textRange, in: string),
-               let urlSwiftRange = Range(urlRange, in: string) {
-                let linkText = String(string[textSwiftRange])
-                let linkURL = String(string[urlSwiftRange])
-                
-                attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
-                    string: linkText,
-                    attributes: [
-                        .font: baseFont,
-                        .foregroundColor: NSColor.linkColor,
-                        .underlineStyle: NSUnderlineStyle.single.rawValue,
-                        .link: linkURL
+            let linkText = nsString.substring(with: textRange)
+            let linkURL = nsString.substring(with: urlRange)
+            attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
+                string: linkText,
+                attributes: [
+                    .font: baseFont,
+                    .foregroundColor: NSColor.linkColor,
+                    .underlineStyle: NSUnderlineStyle.single.rawValue,
+                    .link: linkURL
                     ]
-                ))
-            }
+            ))
         }
     }
     
     private func processAutoLinks(in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         let string = attributedString.string
+        let nsString = string as NSString
         
         // Safety check: skip processing if string is too long to prevent hangs
         guard string.count < 10000 else { return }
         
-        let range = NSRange(location: 0, length: string.count)
+        let range = NSRange(location: 0, length: nsString.length)
         
         let matches = Self.autoLinkPattern.matches(in: string, range: range)
         
@@ -200,29 +192,27 @@ class InlineProcessor {
             let fullRange = match.range
             let urlRange = match.range(at: 1)
             
-            if let urlSwiftRange = Range(urlRange, in: string) {
-                let url = String(string[urlSwiftRange])
-                
-                attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
-                    string: url,
-                    attributes: [
-                        .font: baseFont,
-                        .foregroundColor: NSColor.linkColor,
-                        .underlineStyle: NSUnderlineStyle.single.rawValue,
-                        .link: url
+            let url = nsString.substring(with: urlRange)
+            attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
+                string: url,
+                attributes: [
+                    .font: baseFont,
+                    .foregroundColor: NSColor.linkColor,
+                    .underlineStyle: NSUnderlineStyle.single.rawValue,
+                    .link: url
                     ]
-                ))
-            }
+            ))
         }
     }
     
     private func processBareURLs(in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         let string = attributedString.string
+        let nsString = string as NSString
         
         // Safety check: skip processing if string is too long to prevent hangs
         guard string.count < 10000 else { return }
         
-        let range = NSRange(location: 0, length: string.count)
+        let range = NSRange(location: 0, length: nsString.length)
         
         let matches = Self.bareURLPattern.matches(in: string, range: range)
         
@@ -230,29 +220,27 @@ class InlineProcessor {
             let fullRange = match.range
             let urlRange = match.range(at: 1)
             
-            if let urlSwiftRange = Range(urlRange, in: string) {
-                let url = String(string[urlSwiftRange])
-                
-                attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
-                    string: url,
-                    attributes: [
-                        .font: baseFont,
-                        .foregroundColor: NSColor.linkColor,
-                        .underlineStyle: NSUnderlineStyle.single.rawValue,
-                        .link: url
+            let url = nsString.substring(with: urlRange)
+            attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
+                string: url,
+                attributes: [
+                    .font: baseFont,
+                    .foregroundColor: NSColor.linkColor,
+                    .underlineStyle: NSUnderlineStyle.single.rawValue,
+                    .link: url
                     ]
-                ))
-            }
+            ))
         }
     }
     
     private func processEmojis(in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         let string = attributedString.string
+        let nsString = string as NSString
         
         // Safety check: skip processing if string is too long to prevent hangs
         guard string.count < 10000 else { return }
         
-        let range = NSRange(location: 0, length: string.count)
+        let range = NSRange(location: 0, length: nsString.length)
         
         let matches = Self.emojiPattern.matches(in: string, range: range)
         
@@ -269,15 +257,12 @@ class InlineProcessor {
             let fullRange = match.range
             let emojiNameRange = match.range(at: 1)
             
-            if let emojiNameSwiftRange = Range(emojiNameRange, in: string) {
-                let emojiName = String(string[emojiNameSwiftRange])
-                
-                if let emoji = emojiMap[emojiName] {
-                    attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
-                        string: emoji,
-                        attributes: [.font: baseFont]
-                    ))
-                }
+            let emojiName = nsString.substring(with: emojiNameRange)
+            if let emoji = emojiMap[emojiName] {
+                attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
+                    string: emoji,
+                    attributes: [.font: baseFont]
+                ))
                 // If emoji not found in map, leave the original :emoji: syntax
             }
         }
@@ -285,7 +270,8 @@ class InlineProcessor {
     
     private func processImages(in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         let string = attributedString.string
-        let range = NSRange(location: 0, length: string.count)
+        let nsString = string as NSString
+        let range = NSRange(location: 0, length: nsString.length)
         
         let matches = Self.imagePattern.matches(in: string, range: range)
         
@@ -293,19 +279,17 @@ class InlineProcessor {
             let fullRange = match.range
             let altRange = match.range(at: 1)
             
-            if let altSwiftRange = Range(altRange, in: string) {
-                let altText = String(string[altSwiftRange])
-                let placeholder = altText.isEmpty ? "Image" : altText
+            let altText = nsString.substring(with: altRange)
+            let placeholder = altText.isEmpty ? "Image" : altText
                 
-                // For RTF, represent images as styled text placeholders
-                attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
-                    string: "[Image: \(placeholder)]",
-                    attributes: [
-                        .font: baseFont.withTraits(.italic),
-                        .foregroundColor: NSColor.secondaryLabelColor
+            // For RTF, represent images as styled text placeholders
+            attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
+                string: "[Image: \(placeholder)]",
+                attributes: [
+                    .font: baseFont.withTraits(.italic),
+                    .foregroundColor: NSColor.secondaryLabelColor
                     ]
-                ))
-            }
+            ))
         }
     }
     
