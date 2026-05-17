@@ -76,7 +76,7 @@ class TableProcessor {
         var hasHeader = false
         
         // Process lines and detect header separator
-        for (_, line) in lines.enumerated() {
+        for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             
             // Check if this is a header separator line (contains only |, -, :, and spaces)
@@ -93,21 +93,20 @@ class TableProcessor {
         }
         
         if hasHeader && processedLines.count > 1 {
-            let headerRow = parseTableRow(processedLines[0])
-            let dataRows = Array(processedLines[1...]).map { parseTableRow($0) }
+            let headerRow = parseTableRowPreTrimmed(processedLines[0])
+            let dataRows = Array(processedLines[1...]).map { parseTableRowPreTrimmed($0) }
             return TableData(headerRow: headerRow, dataRows: dataRows, hasHeader: true)
         } else {
-            let dataRows = processedLines.map { parseTableRow($0) }
+            let dataRows = processedLines.map { parseTableRowPreTrimmed($0) }
             return TableData(headerRow: [], dataRows: dataRows, hasHeader: false)
         }
     }
     
-    private func parseTableRow(_ line: String) -> [String] {
+    private func parseTableRowPreTrimmed(_ line: String) -> [String] {
         var cells: [String] = []
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
         
         // Remove leading and trailing pipes
-        var workingLine = trimmed
+        var workingLine = line
         if workingLine.hasPrefix("|") {
             workingLine = String(workingLine.dropFirst())
         }
@@ -125,11 +124,18 @@ class TableProcessor {
     }
     
     internal func isHeaderSeparator(_ line: String) -> Bool {
-        let validChars = CharacterSet(charactersIn: "|-: ")
-        let lineCharSet = CharacterSet(charactersIn: line)
+        guard !line.isEmpty else { return false }
+
+        var hasDash = false
+        for char in line {
+            if char == "-" {
+                hasDash = true
+            } else if char != "|" && char != ":" && char != " " {
+                return false
+            }
+        }
         
-        // Must contain at least one dash and be composed only of valid characters
-        return line.contains("-") && validChars.isSuperset(of: lineCharSet)
+        return hasDash
     }
     
     // MARK: - RTF Table Generation
