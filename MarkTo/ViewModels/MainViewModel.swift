@@ -8,20 +8,46 @@ class MainViewModel: ObservableObject {
     @Published var isConverting: Bool = false
     @Published var statusMessage: String = ""
     @Published var isSuccess: Bool = false
+    @Published var hasRTFInClipboard: Bool = false
+
+    private let rtfToMarkdownConverter = RTFToMarkdownConverter()
+    private var clipboardTimer: Timer?
+    private var lastClipboardChangeCount: Int = 0
     
     private let markdownConverter = MarkdownConverter()
     private var statusTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
     
-    init() {
-        // Debounce text changes to avoid excessive processing
-        $markdownText
-            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.clearStatus()
-            }
-            .store(in: &cancellables)
+init() {
+    // Debounce text changes to avoid excessive processing
+    $markdownText
+        .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+        .sink { [weak self] _ in
+            self?.clearStatus()
+        }
+        .store(in: &cancellables)
+
+    startClipboardMonitoring()
+}
+
+private func startClipboardMonitoring() {
+    clipboardTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        self?.checkClipboardForRTF()
     }
+}
+
+private func checkClipboardForRTF() {
+    let pasteboard = NSPasteboard.general
+    guard pasteboard.changeCount != lastClipboardChangeCount else { return }
+    lastClipboardChangeCount = pasteboard.changeCount
+
+    let hasRTF = pasteboard.availableType(from: [.rtf]) != nil
+    DispatchQueue.main.async {
+        withAnimation {
+            self?.hasRTFInClipboard = hasRTF
+        }
+    }
+}
     
     // MARK: - Public Methods
     
@@ -49,19 +75,52 @@ class MainViewModel: ObservableObject {
         }
     }
     
-    func loadClipboardContent() {
-        let pasteboard = NSPasteboard.general
-        
-        // Try to get text from clipboard
-        guard let clipboardText = pasteboard.string(forType: .string) else { return }
-        
-        // Only load if it looks like markdown and isn't too long
-        if clipboardText.count < 10000 && containsMarkdownSyntax(clipboardText) {
-            markdownText = clipboardText
-            showStatus("Loaded content from clipboard", isSuccess: true)
-        }
+func loadClipboardContent() {
+    let pasteboard = NSPasteboard.general
+
+    if pasteboard.availableType(from: [.rtf]) != nil {
+        pasteRTFAsMarkdown()
+        return
     }
     
+    guard let clipboardText = pasteboard.string(forType: .string) else { return }
+
+    if clipboardText.count < 10000 && containsMarkdownSyntax(clipboardText) {
+        markdownText = clipboardText
+        showStatus("Loaded content from clipboard", isSuccess: true)
+    }
+}
+
+func pasteRTFAsMarkdown() {
+    let pasteboard = NSPasteboard.general
+    guard let rtfData = pasteboard.data(forType: .rtf),
+          let attributedString = NSAttributedString(rtf: rtfData, documentAttributes: nil) else {
+        return
+    }
+
+    let markdownTextToPaste = rtfToMarkdownConverter.convertToMarkdown(attributedString)
+
+    if markdownText.isEmpty {
+        markdownText = markdownTextToPaste
+    } else {
+        markdownText += "\n" + markdownTextToPaste
+    }
+
+    showStatus("Converted Rich Text to Markdown", isSuccess: true)
+
+    withAnimation {
+        hasRTFInClipboard = false
+    }
+}
+
+func dismissRTFPrompt() {
+    withAnimation {
+        hasRTFInClipboard = false
+    }
+}
+
+
+
     func clearText() {
         markdownText = ""
         clearStatus()
@@ -135,6 +194,7 @@ class MainViewModel: ObservableObject {
     }
     
     deinit {
+        clipboardTimer?.invalidate()
         statusTimer?.invalidate()
         cancellables.removeAll()
     }
