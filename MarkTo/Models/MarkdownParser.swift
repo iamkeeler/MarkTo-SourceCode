@@ -163,11 +163,9 @@ class MarkdownParser {
         }
         
         let nsTrimmedLine = trimmedLine as NSString
-        let lineRange = NSRange(location: 0, length: nsTrimmedLine.length)
+        let range = NSRange(location: 0, length: nsTrimmedLine.length)
 
         // Check for unordered lists
-        let nsTrimmedLine = trimmedLine as NSString
-        let range = NSRange(location: 0, length: nsTrimmedLine.length)
 
         if let match = ParsingContext.unorderedListPattern.firstMatch(in: trimmedLine, options: [], range: range) {
             let prefix = nsTrimmedLine.substring(with: match.range)
