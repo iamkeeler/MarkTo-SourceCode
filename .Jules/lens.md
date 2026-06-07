@@ -1,0 +1,3 @@
+## 2024-06-07 - Typographic Scale & Logical Sectioning
+**Learning:** Found a typographic scale inversion in `FormattingCustomizationView` where the page's container title used a smaller font (`.title3`) than the specific section title (`.title2`). This creates cognitive friction because the visual hierarchy contradicts the spatial/logical hierarchy (Page > Component). Also observed that the main input label in `ContentView` lacked sufficient weight (`.subheadline`) to establish a clear section.
+**Action:** Always verify that headings maintain a descending scale (e.g., `.largeTitle` > `.title` > `.title2` > `.title3` > `.headline`) that maps to the nesting depth. Promote small labels that act as primary section headers up to `.headline`.

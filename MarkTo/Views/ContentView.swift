@@ -12,7 +12,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Label("Markdown", systemImage: "text.alignleft")
-                        .font(.subheadline)
+                        .font(.headline)
                         .fontWeight(.medium)
                         .foregroundStyle(.secondary)
                     
