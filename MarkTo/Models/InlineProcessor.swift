@@ -32,7 +32,7 @@ class InlineProcessor {
         
         // First, preprocess escape sequences to protect them from formatting
         let escapedText = preprocessEscapes(processText)
-        let result = NSMutableAttributedString(string: escapedText, attributes: [.font: baseFont])
+        let result = NSMutableAttributedString(string: escapedText, attributes: attributes)
         
         // Process in specific order to handle overlapping patterns correctly
         processStrikethrough(in: result, baseFont: baseFont)
@@ -56,6 +56,12 @@ class InlineProcessor {
         let range = NSRange(location: 0, length: nsString.length)
         
         let matches = Self.strikethroughPattern.matches(in: string, range: range)
+        guard !matches.isEmpty else { return }
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: baseFont,
+            .strikethroughStyle: NSUnderlineStyle.single.rawValue
+        ]
         
         // Process in reverse order to maintain indices
         for match in matches.reversed() {
@@ -66,10 +72,7 @@ class InlineProcessor {
             // Replace with styled content
             attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
                 string: content,
-                attributes: [
-                    .font: baseFont,
-                    .strikethroughStyle: NSUnderlineStyle.single.rawValue
-                    ]
+                attributes: attributes
             ))
         }
     }
@@ -88,17 +91,19 @@ class InlineProcessor {
         let range = NSRange(location: 0, length: nsString.length)
         
         let matches = pattern.matches(in: string, range: range)
+        guard !matches.isEmpty else { return }
+
+        let boldFont = NSFont.boldSystemFont(ofSize: baseFont.pointSize)
+        let attributes: [NSAttributedString.Key: Any] = [.font: boldFont]
         
         for match in matches.reversed() {
             let fullRange = match.range
             let contentRange = match.range(at: 1)
             
             let content = nsString.substring(with: contentRange)
-            let boldFont = NSFont.boldSystemFont(ofSize: baseFont.pointSize)
-                
             attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
                 string: content,
-                attributes: [.font: boldFont]
+                attributes: attributes
             ))
         }
     }
@@ -114,17 +119,19 @@ class InlineProcessor {
         let range = NSRange(location: 0, length: nsString.length)
         
         let matches = pattern.matches(in: string, range: range)
+        guard !matches.isEmpty else { return }
+
+        let italicFont = NSFontManager.shared.convert(baseFont, toHaveTrait: .italicFontMask)
+        let attributes: [NSAttributedString.Key: Any] = [.font: italicFont]
         
         for match in matches.reversed() {
             let fullRange = match.range
             let contentRange = match.range(at: 1)
             
             let content = nsString.substring(with: contentRange)
-            let italicFont = NSFontManager.shared.convert(baseFont, toHaveTrait: .italicFontMask)
-                
             attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
                 string: content,
-                attributes: [.font: italicFont]
+                attributes: attributes
             ))
         }
     }
@@ -135,6 +142,12 @@ class InlineProcessor {
         let range = NSRange(location: 0, length: nsString.length)
         
         let matches = Self.codePattern.matches(in: string, range: range)
+        guard !matches.isEmpty else { return }
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: codeFont,
+            .backgroundColor: NSColor.controlBackgroundColor
+        ]
         
         for match in matches.reversed() {
             let fullRange = match.range
@@ -143,10 +156,7 @@ class InlineProcessor {
             let content = nsString.substring(with: contentRange)
             attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
                 string: content,
-                attributes: [
-                    .font: codeFont,
-                    .backgroundColor: NSColor.controlBackgroundColor
-                    ]
+                attributes: attributes
             ))
         }
     }
@@ -243,6 +253,9 @@ class InlineProcessor {
         let range = NSRange(location: 0, length: nsString.length)
         
         let matches = Self.emojiPattern.matches(in: string, range: range)
+        guard !matches.isEmpty else { return }
+
+        let attributes: [NSAttributedString.Key: Any] = [.font: baseFont]
         
         // Simple emoji mapping for common emojis
         let emojiMap: [String: String] = [
@@ -274,6 +287,12 @@ class InlineProcessor {
         let range = NSRange(location: 0, length: nsString.length)
         
         let matches = Self.imagePattern.matches(in: string, range: range)
+        guard !matches.isEmpty else { return }
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: baseFont.withTraits(.italic),
+            .foregroundColor: NSColor.secondaryLabelColor
+        ]
         
         for match in matches.reversed() {
             let fullRange = match.range
@@ -285,10 +304,7 @@ class InlineProcessor {
             // For RTF, represent images as styled text placeholders
             attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
                 string: "[Image: \(placeholder)]",
-                attributes: [
-                    .font: baseFont.withTraits(.italic),
-                    .foregroundColor: NSColor.secondaryLabelColor
-                    ]
+                attributes: attributes
             ))
         }
     }
