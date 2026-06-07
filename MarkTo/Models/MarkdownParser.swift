@@ -142,6 +142,25 @@ class MarkdownParser {
             return tableResult.content
         }
         
+        // Quick check for plain text to optimize common case
+        if !trimmedLine.isEmpty {
+            let firstChar = trimmedLine.first!
+            let hasMarkdownChars = trimmedLine.contains("*") || trimmedLine.contains("_") || trimmedLine.contains("`") || trimmedLine.contains("[") || trimmedLine.contains("<") || trimmedLine.contains("!") || trimmedLine.contains("~") || trimmedLine.contains(":")
+
+            if !hasMarkdownChars &&
+               firstChar != "#" && firstChar != ">" && firstChar != "-" && firstChar != "*" && firstChar != "+" && firstChar != "|" && !firstChar.isNumber {
+
+                // Might still be a bare URL
+                let mightBeBareURL = trimmedLine.contains("http://") || trimmedLine.contains("https://")
+
+                if !mightBeBareURL {
+                    // This is a plain text line without any markdown formatting
+                    context.listContext.reset()
+                    return NSAttributedString(string: line, attributes: [.font: context.baseFont])
+                }
+            }
+        }
+
         // Check for horizontal rules
         if blockProcessor.isHorizontalRule(trimmedLine) {
             context.listContext.reset()
