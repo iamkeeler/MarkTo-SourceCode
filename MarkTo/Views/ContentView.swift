@@ -28,6 +28,32 @@ struct ContentView: View {
                     }
                 }
                 
+if viewModel.hasRTFInClipboard {
+    HStack {
+        Image(systemName: "wand.and.stars")
+            .foregroundColor(.blue)
+        Text("Rich text detected on clipboard.")
+            .font(.subheadline)
+        Spacer()
+        Button("Paste as Markdown") {
+            viewModel.pasteRTFAsMarkdown()
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.small)
+
+        Button(action: {
+            viewModel.dismissRTFPrompt()
+        }) {
+            Image(systemName: "xmark.circle.fill")
+                .foregroundColor(.secondary)
+        }
+        .buttonStyle(.plain)
+    }
+    .padding(10)
+    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+    .transition(.move(edge: .top).combined(with: .opacity))
+}
+
                 TextEditor(text: $viewModel.markdownText)
                     .font(.system(size: fontSize, design: .monospaced))
                     .scrollContentBackground(.hidden)
