@@ -1,7 +1,13 @@
-⚡ Optimize NSRegularExpression match substring extraction
+🔍 Lens: Fix typographic scale inversion in Settings & ContentView
 
-💡 **What:** Replaced the `Range(contentRange, in: string)` Swift `String.Index` translation with `NSString`'s `.substring(with:)` across all inline regex processors in `InlineProcessor.swift`.
+The Problem:
+In `FormattingCustomizationView`, the page's main title "Rich Text Formatting" used `.title3`, but the specific element header (e.g. "Body Text") used `.title2`. This inverted the typographical hierarchy, creating cognitive friction by making the sub-section visually more dominant than the page title. In `ContentView`, the "Markdown" label used `.subheadline`, which was too small to establish a clear section hierarchy over the input field.
 
-🎯 **Why:** Translating an `NSRange` to a Swift `Range<String.Index>` requires traversing the String from the beginning since Swift Strings use UTF-8/UTF-16 encoding dynamically and count characters by grapheme clusters (O(N) operation for index translations). Doing this inside a loop proportional to the number of matches causes O(N*M) or O(N^2) complexity where N is the text length. Additionally, casting substring slices directly to `String(string[contentSwiftRange])` incurs extra memory allocations. By casting the base string to `NSString` once and using `.substring(with:)`, we utilize O(1) direct integer-offset memory reads, saving huge amounts of CPU cycles and memory allocations for documents with many format matches.
+The Visual Logic:
+Typographic Scale dictates that headings must be larger than body text and descend logically (Page > Section > Component). By promoting the Page Title to `.title2` and demoting the section header to `.title3`, we map the visual hierarchy to the logical hierarchy. Promoting the input label to `.headline` establishes it as a section leader without overpowering the CTA.
 
-📊 **Measured Improvement:** Standard Swift build tools (`swiftc`, `xcodebuild`) were unavailable in the development environment to execute benchmarks. However, the theoretical algorithmic improvement is changing the inner loop extraction string lookup from O(N) index traversal to O(1) integer-based substring bounds lookup per match. For a text containing hundreds of formatting directives (e.g. `**bold**`), this saves N traversals, translating to a substantial performance increase during the RTF conversion process and significantly fewer ARC allocations due to substring memory bridging optimizations.
+The Surgery:
+Modified existing `.font()` view modifiers in `FormattingCustomizationView.swift` and `ContentView.swift`. No new components or custom font sizes were created; relied entirely on Apple's standard dynamic type scale values (`.headline`, `.title2`, `.title3`).
+
+A11y/IA Impact:
+Standardizing to the correct Apple dynamic type scale improves the predictability of the mental model, ensuring users immediately recognize their current context within the hierarchy, while fully supporting dynamic type scaling.

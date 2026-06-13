@@ -24,7 +24,7 @@ struct FormattingCustomizationView: View {
                 .foregroundColor(.accentColor)
                 
                 Text("Rich Text Formatting")
-                    .font(.title3)
+                    .font(.title2)
                     .fontWeight(.medium)
                     .padding(.leading, 12)
                 
@@ -163,12 +163,12 @@ struct FormattingCustomizationView: View {
     // MARK: - Element Header
     private var elementHeader: some View {            HStack {
                 Image(systemName: iconForElement(viewModel.selectedElement))
-                    .font(.title)
+                    .font(.title2)
                     .foregroundStyle(.blue)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(viewModel.selectedElement.displayName)
-                        .font(.title2)
+                        .font(.title3)
                         .fontWeight(.medium)
                     
                     Text("Customize appearance and spacing")

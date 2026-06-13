@@ -1,20 +1,11 @@
-#!/usr/bin/env ruby
+content = File.read('MarkTo/Views/FormattingCustomizationView.swift')
+# Change page title
+content.sub!(/Text\("Rich Text Formatting"\)\n\s*\.font\(\.title3\)/, "Text(\"Rich Text Formatting\")\n                    .font(.title2)")
 
-file_path = 'MarkTo/Models/InlineProcessor.swift'
-content = File.read(file_path)
+# Change element header icon font
+content.sub!(/Image\(systemName: iconForElement\(viewModel\.selectedElement\)\)\n\s*\.font\(\.title\)/, "Image(systemName: iconForElement(viewModel.selectedElement))\n                    .font(.title2)")
 
-methods = [
-  'processStrikethrough',
-  'processBoldPattern',
-  'processItalicPattern',
-  'processCode',
-  'processAutoLinks',
-  'processBareURLs',
-  'processEmojis',
-  'processImages'
-]
+# Change element header title font
+content.sub!(/Text\(viewModel\.selectedElement\.displayName\)\n\s*\.font\(\.title2\)/, "Text(viewModel.selectedElement.displayName)\n                        .font(.title3)")
 
-methods.each do |method_name|
-  # Replace 'let string = attributedString.string'
-  # with 'let nsString = attributedString.string as NSString'
-end
+File.write('MarkTo/Views/FormattingCustomizationView.swift', content)
