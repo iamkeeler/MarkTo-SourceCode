@@ -96,6 +96,7 @@ struct ContentView: View {
         .onHover { isHoveringSettings = $0 }
         .help("Settings (⌘,)")
         .accessibilityLabel("Settings")
+        .accessibilityIdentifier("openSettingsButton")
     }
 
     private var convertButton: some View {

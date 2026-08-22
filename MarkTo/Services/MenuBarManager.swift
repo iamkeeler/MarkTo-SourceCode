@@ -223,6 +223,10 @@ class MenuBarManager: ObservableObject {
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    func openSettings() {
+        showSettings()
+    }
     
     @objc private func quitApp() {
         NSApplication.shared.terminate(nil)

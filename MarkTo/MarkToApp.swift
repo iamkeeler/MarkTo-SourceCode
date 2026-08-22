@@ -9,7 +9,9 @@ struct MarkToApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(onOpenSettings: {
+                menuBarManager.openSettings()
+            })
                 .navigationTitle("MarkTo")
                 .frame(width: 420, height: 380)
                 .environmentObject(appSettings)

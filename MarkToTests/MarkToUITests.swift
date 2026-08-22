@@ -29,6 +29,15 @@ final class MarkToUITests: XCTestCase {
         let convertButtonEnabled = convertButton.isEnabled
         XCTAssertTrue(convertButtonExists, "Convert button should be present")
         XCTAssertFalse(convertButtonEnabled, "Convert button should be disabled when editor is empty")
+
+        let settingsButton = window.buttons["openSettingsButton"]
+        let settingsButtonExists = settingsButton.exists
+        XCTAssertTrue(settingsButtonExists, "Settings button should be present")
+        settingsButton.click()
+
+        let settingsWindow = app.windows["Settings"]
+        let settingsAppeared = settingsWindow.waitForExistence(timeout: 3.0)
+        XCTAssertTrue(settingsAppeared, "Settings should open from the main-window gear button")
     }
 
     @MainActor
