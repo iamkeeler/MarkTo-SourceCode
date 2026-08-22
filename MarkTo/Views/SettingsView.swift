@@ -5,9 +5,15 @@ struct SettingsView: View {
     @AppStorage("fontSize") private var fontSize: Double = 14
     @AppStorage("showCharacterCount") private var showCharacterCount: Bool = true
     @StateObject private var themeManager = ThemeManager()
-    @StateObject private var appSettings = AppPreferences()
+    @EnvironmentObject private var appSettings: AppPreferences
     @State private var navigationPath = NavigationPath()
-    
+
+    private var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        return build.isEmpty ? version : "\(version) (\(build))"
+    }
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
             Form {
@@ -18,24 +24,38 @@ struct SettingsView: View {
                         Toggle("Hide Dock Icon", isOn: $appSettings.hideDockIcon)
                             .toggleStyle(.switch)
                             .labelsHidden()
+                            .accessibilityLabel("Hide Dock Icon")
+                            .accessibilityIdentifier("hideDockIconToggle")
                     }
                     .help("Hide MarkTo from the Dock (app will still be accessible from menu bar)")
-                    
+
+                    // Hide on Startup Setting
+                    LabeledContent("Hide on Startup") {
+                        Toggle("Hide on Startup", isOn: $appSettings.hideOnStartup)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                            .accessibilityLabel("Hide on Startup")
+                            .accessibilityIdentifier("hideOnStartupToggle")
+                    }
+                    .help("Start MarkTo in the background without showing the main window")
+
                     // Start at Login Setting
                     LabeledContent("Start at Login") {
                         Toggle("Start at Login", isOn: $appSettings.startAtLogin)
                             .toggleStyle(.switch)
                             .labelsHidden()
+                            .accessibilityLabel("Start at Login")
+                            .accessibilityIdentifier("startAtLoginToggle")
                     }
                     .help("Automatically start MarkTo when you log in to your Mac")
-                    
+
                 } header: {
                     Label("App Behavior", systemImage: "gear")
                 } footer: {
                     Text("Configure how MarkTo behaves on your system.")
                         .foregroundStyle(.secondary)
                 }
-                
+
                 // MARK: - Appearance Section
                 Section {
                     // Theme Selection
@@ -66,10 +86,10 @@ struct SettingsView: View {
                                     Image(systemName: themeManager.currentTheme.systemImage)
                                         .foregroundStyle(.secondary)
                                         .frame(width: 16)
-                                    
+
                                     Text(themeManager.currentTheme.displayName)
                                         .foregroundStyle(.primary)
-                                    
+
                                     Image(systemName: "chevron.up.chevron.down")
                                         .foregroundStyle(.tertiary)
                                         .font(.caption2)
@@ -90,14 +110,14 @@ struct SettingsView: View {
                         }
                     }
                     .help("Select between light, dark, or system appearance")
-                    
+
                 } header: {
                     Label("Appearance", systemImage: "paintbrush")
                 } footer: {
                     Text("Customize the visual appearance of MarkTo.")
                         .foregroundStyle(.secondary)
                 }
-                
+
                 Section {
                     // Font Size Setting
                     LabeledContent("Font Size") {
@@ -114,7 +134,7 @@ struct SettingsView: View {
                                     .foregroundStyle(.secondary)
                             }
                             .frame(width: 120)
-                            
+
                             Text("\(Int(fontSize))pt")
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(.secondary)
@@ -122,7 +142,7 @@ struct SettingsView: View {
                         }
                     }
                     .help("Adjust the editor font size")
-                    
+
                     // Character Count Setting
                     LabeledContent("Show Character Count") {
                         Toggle("Show Character Count", isOn: $showCharacterCount)
@@ -130,7 +150,7 @@ struct SettingsView: View {
                             .labelsHidden()
                     }
                     .help("Display character count in the editor")
-                    
+
                     // Rich Text Formatting Navigation
                     Button {
                         navigationPath.append("formatting")
@@ -140,31 +160,32 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Customize font sizes and formatting for different markdown elements")
-                    
+                    .accessibilityIdentifier("customizeFormattingButton")
+
                 } header: {
                     Label("Editor", systemImage: "textformat")
                 } footer: {
                     Text("Customize your editing experience and rich text output formatting.")
                         .foregroundStyle(.secondary)
                 }
-                
+
                 Section {
                     // App Info
                     LabeledContent("Version") {
-                        Text("1.0.1")
+                        Text(appVersion)
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     LabeledContent("Developer") {
                         Text("Attach.design")
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     LabeledContent("Copyright") {
                         Text("© 2025 Attach.design")
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     // Privacy Policy Link
                     LabeledContent("Privacy Policy") {
                         Button("View Policy") {
@@ -175,28 +196,28 @@ struct SettingsView: View {
                         .buttonStyle(.link)
                         .controlSize(.small)
                     }
-                    
+
                 } header: {
                     Label("About MarkTo", systemImage: "info.circle")
                 } footer: {
                     Text("A lightweight macOS app for converting Markdown to Rich Text Format.")
                         .foregroundStyle(.secondary)
                 }
-                
+
                 Section {
                     // Open Source Description
                     VStack(alignment: .leading, spacing: 8) {
                         Text("MarkTo is open source software")
                             .font(.subheadline)
                             .fontWeight(.medium)
-                        
+
                         Text("This application is released under the Creative Commons Attribution-NonCommercial 4.0 International License. You are free to use, modify, and share the source code for non-commercial purposes.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.vertical, 4)
-                    
+
                     // GitHub Repository Link
                     LabeledContent("Source Code") {
                         Button("View on GitHub") {
@@ -208,7 +229,7 @@ struct SettingsView: View {
                         .controlSize(.small)
                     }
                     .help("View the complete source code on GitHub")
-                    
+
                     // License Link
                     LabeledContent("License") {
                         Button("CC BY-NC 4.0") {
@@ -220,7 +241,7 @@ struct SettingsView: View {
                         .controlSize(.small)
                     }
                     .help("View the full license terms")
-                    
+
                     // Contributing Link
                     LabeledContent("Contributing") {
                         Button("Contribute") {
@@ -232,7 +253,7 @@ struct SettingsView: View {
                         .controlSize(.small)
                     }
                     .help("Learn how to contribute to the project")
-                    
+
                 } header: {
                     Label("Open Source", systemImage: "chevron.left.forwardslash.chevron.right")
                 } footer: {
@@ -254,4 +275,5 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView()
+        .environmentObject(AppPreferences.shared)
 }

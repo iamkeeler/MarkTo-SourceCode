@@ -24,12 +24,12 @@ enum MarkdownConversionError: Error, LocalizedError {
 
 // MARK: - Refactored Markdown Converter
 /// Main interface for converting markdown to RTF using the new modular architecture
-class MarkdownConverter {
+final class MarkdownConverter: @unchecked Sendable {
     
     private let parser: MarkdownParser
     
     // Configuration options
-    struct Configuration {
+    struct Configuration: @unchecked Sendable {
         let baseFont: NSFont
         let codeFont: NSFont
         let preserveWhitespace: Bool
@@ -43,10 +43,14 @@ class MarkdownConverter {
         )
     }
     
-    init(configuration: Configuration = .default) {
+    init(
+        configuration: Configuration = .default,
+        formatting: FormattingSnapshot = .defaults
+    ) {
         self.parser = MarkdownParser(
             baseFont: configuration.baseFont,
-            codeFont: configuration.codeFont
+            codeFont: configuration.codeFont,
+            formatting: formatting
         )
     }
     

@@ -1,85 +1,115 @@
 import Foundation
-import Combine
 import AppKit
 import SwiftUI
 
-class MainViewModel: ObservableObject {
-    @Published var markdownText: String = ""
+private struct ConversionOutcome: @unchecked Sendable {
+    let result: Result<NSAttributedString, MarkdownConversionError>
+    let processingTime: TimeInterval
+}
+
+@MainActor
+final class MainViewModel: ObservableObject {
+    @Published var markdownText: String = "" {
+        didSet {
+            if markdownText != oldValue {
+                clearStatus()
+            }
+        }
+    }
     @Published var isConverting: Bool = false
     @Published var statusMessage: String = ""
     @Published var isSuccess: Bool = false
-    
-    private let markdownConverter = MarkdownConverter()
-    private var statusTimer: Timer?
-    private var cancellables = Set<AnyCancellable>()
-    
-    init() {
-        // Debounce text changes to avoid excessive processing
-        $markdownText
-            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.clearStatus()
-            }
-            .store(in: &cancellables)
-    }
-    
+
+    private var conversionTask: Task<Void, Never>?
+    private var statusClearTask: Task<Void, Never>?
+
     // MARK: - Public Methods
-    
+
     func convertToRTF() {
         guard !markdownText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             showStatus("Please enter some markdown text", isSuccess: false)
             return
         }
-        
+
         isConverting = true
         clearStatus()
-        
-        // Perform conversion on background queue
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            
-            let startTime = CFAbsoluteTimeGetCurrent()
-            let result = self.markdownConverter.convertToRTF(self.markdownText)
-            let processingTime = CFAbsoluteTimeGetCurrent() - startTime
-            
-            DispatchQueue.main.async {
-                self.isConverting = false
-                self.handleConversionResult(result, processingTime: processingTime)
-            }
+
+        let textToConvert = markdownText
+        let converter = MarkdownConverter(
+            formatting: FormattingPreferences.shared.snapshot()
+        )
+
+        conversionTask?.cancel()
+        conversionTask = Task { [weak self] in
+            let outcome = await Task.detached(priority: .userInitiated) {
+                let startTime = CFAbsoluteTimeGetCurrent()
+                let result = converter.convertToRTF(textToConvert)
+                return ConversionOutcome(
+                    result: result,
+                    processingTime: CFAbsoluteTimeGetCurrent() - startTime
+                )
+            }.value
+
+            guard !Task.isCancelled else { return }
+            self?.isConverting = false
+            self?.handleConversionResult(
+                outcome.result,
+                processingTime: outcome.processingTime
+            )
         }
     }
-    
+
     func loadClipboardContent() {
-        let pasteboard = NSPasteboard.general
-        
-        // Try to get text from clipboard
-        guard let clipboardText = pasteboard.string(forType: .string) else { return }
-        
+        loadClipboardContent(NSPasteboard.general.string(forType: .string))
+    }
+
+    func loadClipboardContent(_ clipboardText: String?) {
+        guard let clipboardText else { return }
+
         // Only load if it looks like markdown and isn't too long
         if clipboardText.count < 10000 && containsMarkdownSyntax(clipboardText) {
             markdownText = clipboardText
             showStatus("Loaded content from clipboard", isSuccess: true)
         }
     }
-    
+
+    func loadFile(at url: URL) {
+        let hasSecurityScope = url.startAccessingSecurityScopedResource()
+        defer {
+            if hasSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            markdownText = try String(contentsOf: url, encoding: .utf8)
+            showStatus("Loaded \(url.lastPathComponent)", isSuccess: true)
+        } catch {
+            showStatus("Could not open \(url.lastPathComponent)", isSuccess: false)
+        }
+    }
+
     func clearText() {
         markdownText = ""
         clearStatus()
     }
-    
+
     // MARK: - Private Methods
-    
+
     private func handleConversionResult(_ result: Result<NSAttributedString, MarkdownConversionError>, processingTime: TimeInterval) {
         switch result {
         case .success(let attributedString):
-            copyToClipboard(attributedString)
+            guard copyToClipboard(attributedString) else {
+                showStatus("Could not write RTF to the clipboard", isSuccess: false)
+                return
+            }
             let timeText = String(format: "%.0f", processingTime * 1000)
             showStatus("RTF copied to clipboard! (\(timeText)ms)", isSuccess: true)
         case .failure(let error):
             showStatus("Error: \(error.localizedDescription)", isSuccess: false)
         }
     }
-    
+
     private func containsMarkdownSyntax(_ text: String) -> Bool {
         let markdownPatterns = [
             #"^#{1,6}\s"#,          // Headers
@@ -91,51 +121,53 @@ class MainViewModel: ObservableObject {
             #"```"#,                // Code blocks
             #"\[.*\]\(.*\)"#        // Links
         ]
-        
+
         return markdownPatterns.contains { pattern in
             text.range(of: pattern, options: .regularExpression) != nil
         }
     }
-    
-    private func copyToClipboard(_ attributedString: NSAttributedString) {
+
+    @discardableResult
+    private func copyToClipboard(_ attributedString: NSAttributedString) -> Bool {
         let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        
-        // Generate RTF data directly from the attributed string
-        if let rtfData = try? attributedString.data(
+        guard let rtfData = try? attributedString.data(
             from: NSRange(location: 0, length: attributedString.length),
             documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
-        ) {
-            // Set RTF data on clipboard
-            pasteboard.setData(rtfData, forType: .rtf)
+        ) else {
+            return false
         }
-        
-        // Also set plain text version for compatibility
-        pasteboard.setString(attributedString.string, forType: .string)
+
+        pasteboard.clearContents()
+        let wroteRTF = pasteboard.setData(rtfData, forType: .rtf)
+        let wrotePlainText = pasteboard.setString(attributedString.string, forType: .string)
+        return wroteRTF && wrotePlainText
     }
-    
+
     private func showStatus(_ message: String, isSuccess: Bool) {
         withAnimation(.easeInOut(duration: 0.3)) {
             self.statusMessage = message
             self.isSuccess = isSuccess
         }
-        
+
         // Clear status after delay
-        statusTimer?.invalidate()
-        statusTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: false) { [weak self] _ in
+        statusClearTask?.cancel()
+        statusClearTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
             self?.clearStatus()
         }
     }
-    
+
     private func clearStatus() {
         withAnimation(.easeInOut(duration: 0.3)) {
             statusMessage = ""
         }
-        statusTimer?.invalidate()
+        statusClearTask?.cancel()
+        statusClearTask = nil
     }
-    
+
     deinit {
-        statusTimer?.invalidate()
-        cancellables.removeAll()
+        conversionTask?.cancel()
+        statusClearTask?.cancel()
     }
 }

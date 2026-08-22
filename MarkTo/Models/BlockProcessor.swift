@@ -47,6 +47,23 @@ class BlockProcessor {
             newAttributes[.foregroundColor] = NSColor.textColor
             result.setAttributes(newAttributes, range: range)
         }
+
+        let headingElement: MarkdownElement = switch level {
+        case 1: .header1
+        case 2: .header2
+        case 3: .header3
+        case 4: .header4
+        case 5: .header5
+        default: .header6
+        }
+        let headingFormatting = context.formatting.formatting(for: headingElement)
+        result.addAttributes(
+            [
+                .paragraphStyle: context.paragraphStyle(for: headingElement),
+                .kern: headingFormatting.characterSpacing
+            ],
+            range: NSRange(location: 0, length: result.length)
+        )
         
         return result
     }
@@ -56,17 +73,24 @@ class BlockProcessor {
     /// Create blockquote with visual indicator
     func createBlockquote(_ text: String, context: ParsingContext) -> NSAttributedString {
         let result = NSMutableAttributedString(string: "▌ ")
+        let blockquoteFont = context.font(for: .blockquote)
         result.addAttributes([
             .foregroundColor: NSColor.quaternaryLabelColor,
-            .font: context.baseFont
+            .font: blockquoteFont
         ], range: NSRange(location: 0, length: 2))
         
-        let content = inlineProcessor.processInlineMarkdown(text, baseFont: context.baseFont, codeFont: context.codeFont)
+        let content = inlineProcessor.processInlineMarkdown(
+            text,
+            baseFont: blockquoteFont,
+            codeFont: context.codeFont
+        )
         result.append(content)
         
         // Add left margin/padding effect
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.firstLineHeadIndent = 20
+        paragraphStyle.headIndent = 20
+        paragraphStyle.lineSpacing = context.paragraphStyle(for: .blockquote).lineSpacing
         result.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: result.length))
         
         return result

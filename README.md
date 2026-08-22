@@ -19,27 +19,30 @@ MarkTo is designed for users who frequently work with Markdown and need a quick,
 
 ## ✨ Features
 
-### � **Core Functionality**
+### ⚡ **Core Functionality**
 - **Instant Conversion**: Convert Markdown to RTF with a single click or keyboard shortcut (⌘R)
 - **Clipboard Integration**: Automatically copies converted RTF to clipboard for immediate use
-- **Real-time Preview**: See your formatting as you type with syntax highlighting
-- **Menu Bar Access**: Quick access from menu bar without cluttering your dock
+- **Formatting Preview**: Preview output styles while customizing Markdown elements
+- **Menu Bar Access**: Quick access from menu bar with optional Dock icon hiding
+- **Hide on Startup**: Option to launch silently in the background into the menu bar upon login/boot
 
 ### 📝 **Markdown Support**
-- **Headers**: All levels (`# H1` through `#### H4`)
-- **Text Formatting**: Bold (`**text**`), Italic (`*text*`), Inline Code (`` `code` ``)
-- **Lists**: Unordered (`-`, `*`, `+`) and ordered (`1.`, `2.`, etc.)
-- **Code Blocks**: Fenced code blocks with ``` syntax
-- **Paragraphs**: Proper paragraph spacing and formatting
+- **Headers**: All levels (`# H1` through `###### H6`)
+- **Text Formatting**: Bold (`**text**`), Italic (`*text*`), Inline Code (`` `code` ``), Strikethrough (`~~text~~`)
+- **Tables**: Pipe-delimited Markdown tables with headers and portable RTF formatting
+- **Lists**: Nested unordered (`-`, `*`, `+`) and ordered (`1.`, `2.`, etc.)
+- **Code Blocks**: Fenced code blocks with preserved monospaced formatting
+- **Paragraphs & Links**: Proper paragraph spacing, hyperlinks, and bare URL auto-linking
 
 ### ⚙️ **Customization**
 - **Rich Text Formatting**: Customize fonts, sizes, and styles for each Markdown element
 - **Font Size Control**: Adjustable editor font size (10-24pt)
 - **Character Count**: Optional character counter
 - **Dual Interface**: Choose between menu bar dropdown or standalone window
+- **App Behavior**: Configure start at login, hide dock icon, and hide window on startup
 
 ### 🎨 **User Experience**
-- **Native macOS Design**: Follows macOS Human Interface Guidelines
+- **Native macOS Design**: Follows macOS Human Interface Guidelines with system appearance support (Light/Dark/System)
 - **Accessibility**: Full VoiceOver support and keyboard navigation
 - **Performance**: Lightning-fast conversion (< 50ms for typical documents)
 - **Memory Efficient**: < 8MB footprint, < 0.1% CPU when idle
@@ -57,21 +60,25 @@ Your Markdown content never leaves your device. MarkTo only accesses:
 - **Clipboard**: To copy converted RTF (with your explicit action)
 - **User Preferences**: To save your settings locally
 
-## 📱 App Store
+## 📱 App Store & GitHub Releases
 
-*Coming Soon to the Mac App Store*
+- **Mac App Store**: Available on the [Mac App Store](https://apps.apple.com/app/markto/id6741703212)
+- **GitHub Releases**: Download pre-built, signed, and notarized DMG disk images directly from [GitHub Releases](https://github.com/iamkeeler/MarkTo-SourceCode/releases).
 
 ## 🗺 Roadmap
 
-### Current Version (1.0.1)
+### Current Version (1.0.3)
 - ✅ Core Markdown to RTF conversion
-- ✅ Menu bar integration
-- ✅ Customizable formatting
+- ✅ Full Markdown table support with native RTF table formatting
+- ✅ Menu bar integration & Hide Dock Icon mode
+- ✅ Hide window on startup option
+- ✅ Customizable formatting per markdown element
+- ✅ Dynamic versioning & preference sync
 - ✅ Privacy-focused design
 
 ### Planned Features
 - 🔄 Export to additional formats (HTML, PDF, Word)
-- 📊 Enhanced Markdown syntax support (tables, footnotes)
+- 📊 Extended Markdown syntax enhancements (footnotes, definition lists)
 
 ## 🚀 Usage
 
@@ -170,4 +177,3 @@ This means you are free to:
 For commercial licensing, please contact [gary@attach.design](mailto:gary@attach.design).
 
 This project welcomes contributions from the community!
-

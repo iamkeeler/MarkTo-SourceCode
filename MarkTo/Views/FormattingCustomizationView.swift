@@ -22,6 +22,8 @@ struct FormattingCustomizationView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(.accentColor)
+                .accessibilityLabel("Back to Settings")
+                .accessibilityIdentifier("formattingBackButton")
                 
                 Text("Rich Text Formatting")
                     .font(.title3)
@@ -637,42 +639,6 @@ private struct ElementRowButton: View {
         case .italic: return "italic"
         case .code: return "chevron.left.forwardslash.chevron.right"
         case .blockquote: return "quote.bubble"
-        }
-    }
-}
-
-// MARK: - Formatting Presets
-enum FormattingPreset: String, CaseIterable {
-    case compact = "Compact"
-    case standard = "Standard"
-    case spacious = "Spacious"
-    case large = "Large"
-    
-    var displayName: String { rawValue }
-    
-    var iconName: String {
-        switch self {
-        case .compact: return "arrow.down.square"
-        case .standard: return "square"
-        case .spacious: return "arrow.up.square"
-        case .large: return "plus.square"
-        }
-    }
-    
-    func apply(to formatting: inout TextFormatting, for element: MarkdownElement) {
-        switch self {
-        case .compact:
-            formatting.lineSpacing = 1.0
-            formatting.fontSize = max(10, formatting.fontSize - 2)
-        case .standard:
-            formatting.lineSpacing = 1.2
-            // Keep current font size
-        case .spacious:
-            formatting.lineSpacing = 1.6
-            formatting.fontSize = min(48, formatting.fontSize + 2)
-        case .large:
-            formatting.lineSpacing = 1.8
-            formatting.fontSize = min(72, formatting.fontSize + 4)
         }
     }
 }
