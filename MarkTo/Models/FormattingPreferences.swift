@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 // MARK: - Markdown Elements
-enum MarkdownElement: String, CaseIterable, Identifiable {
+enum MarkdownElement: String, CaseIterable, Identifiable, Sendable {
     case body = "body"
     case header1 = "header1"
     case header2 = "header2"
@@ -15,9 +15,9 @@ enum MarkdownElement: String, CaseIterable, Identifiable {
     case code = "code"
     case blockquote = "blockquote"
     case listItem = "listItem"
-    
+
     var id: String { rawValue }
-    
+
     var displayName: String {
         switch self {
         case .body: return "Body Text"
@@ -34,7 +34,7 @@ enum MarkdownElement: String, CaseIterable, Identifiable {
         case .listItem: return "List Item"
         }
     }
-    
+
     var exampleText: String {
         switch self {
         case .body: return "This is body text with normal formatting."
@@ -51,7 +51,7 @@ enum MarkdownElement: String, CaseIterable, Identifiable {
         case .listItem: return "• This is a list item"
         }
     }
-    
+
     var category: ElementCategory {
         switch self {
         case .body, .listItem:
@@ -67,7 +67,7 @@ enum MarkdownElement: String, CaseIterable, Identifiable {
 }
 
 // MARK: - Element Categories
-enum ElementCategory: String, CaseIterable {
+enum ElementCategory: String, CaseIterable, Sendable {
     case headers = "Headers"
     case text = "Text"
     case inline = "Inline Formatting"
@@ -75,7 +75,7 @@ enum ElementCategory: String, CaseIterable {
 }
 
 // MARK: - Font Weight
-enum FontWeight: String, CaseIterable, Identifiable, Codable {
+enum FontWeight: String, CaseIterable, Identifiable, Codable, Sendable {
     case ultraLight = "ultraLight"
     case thin = "thin"
     case light = "light"
@@ -85,9 +85,9 @@ enum FontWeight: String, CaseIterable, Identifiable, Codable {
     case bold = "bold"
     case heavy = "heavy"
     case black = "black"
-    
+
     var id: String { rawValue }
-    
+
     var displayName: String {
         switch self {
         case .ultraLight: return "Ultra Light"
@@ -101,7 +101,7 @@ enum FontWeight: String, CaseIterable, Identifiable, Codable {
         case .black: return "Black"
         }
     }
-    
+
     var nsWeight: NSFont.Weight {
         switch self {
         case .ultraLight: return .ultraLight
@@ -118,27 +118,27 @@ enum FontWeight: String, CaseIterable, Identifiable, Codable {
 }
 
 // MARK: - Text Formatting
-struct TextFormatting: Codable, Equatable {
+struct TextFormatting: Codable, Equatable, Sendable {
     var fontSize: Double
     var fontWeight: FontWeight
     var lineSpacing: Double
     var characterSpacing: Double
-    
-    init(fontSize: Double = 12.0, 
-         fontWeight: FontWeight = .regular, 
-         lineSpacing: Double = 1.2, 
+
+    init(fontSize: Double = 12.0,
+         fontWeight: FontWeight = .regular,
+         lineSpacing: Double = 1.2,
          characterSpacing: Double = 0.0) {
         self.fontSize = fontSize
         self.fontWeight = fontWeight
         self.lineSpacing = lineSpacing
         self.characterSpacing = characterSpacing
     }
-    
+
     // Default formatting for each element type
     static func defaultFormatting(for element: MarkdownElement) -> TextFormatting {
         switch element {
         case .body:
-            return TextFormatting(fontSize: 12, fontWeight: .regular, lineSpacing: 1.4)
+            return TextFormatting(fontSize: 14, fontWeight: .regular, lineSpacing: 1.4)
         case .header1:
             return TextFormatting(fontSize: 24, fontWeight: .bold, lineSpacing: 1.2)
         case .header2:
@@ -152,41 +152,59 @@ struct TextFormatting: Codable, Equatable {
         case .header6:
             return TextFormatting(fontSize: 12, fontWeight: .medium, lineSpacing: 1.2)
         case .bold:
-            return TextFormatting(fontSize: 12, fontWeight: .bold, lineSpacing: 1.4)
+            return TextFormatting(fontSize: 14, fontWeight: .bold, lineSpacing: 1.4)
         case .italic:
-            return TextFormatting(fontSize: 12, fontWeight: .regular, lineSpacing: 1.4)
+            return TextFormatting(fontSize: 14, fontWeight: .regular, lineSpacing: 1.4)
         case .code:
             return TextFormatting(fontSize: 11, fontWeight: .regular, lineSpacing: 1.3, characterSpacing: 0.5)
         case .blockquote:
-            return TextFormatting(fontSize: 12, fontWeight: .regular, lineSpacing: 1.5)
+            return TextFormatting(fontSize: 14, fontWeight: .regular, lineSpacing: 1.5)
         case .listItem:
-            return TextFormatting(fontSize: 12, fontWeight: .regular, lineSpacing: 1.4)
+            return TextFormatting(fontSize: 14, fontWeight: .regular, lineSpacing: 1.4)
         }
+    }
+}
+
+// MARK: - Thread-Safe Formatting Snapshot
+struct FormattingSnapshot: Sendable {
+    let settings: [MarkdownElement: TextFormatting]
+
+    static let defaults = FormattingSnapshot(
+        settings: Dictionary(uniqueKeysWithValues: MarkdownElement.allCases.map {
+            ($0, TextFormatting.defaultFormatting(for: $0))
+        })
+    )
+
+    func formatting(for element: MarkdownElement) -> TextFormatting {
+        settings[element] ?? TextFormatting.defaultFormatting(for: element)
     }
 }
 
 // MARK: - Formatting Preferences
 @MainActor
 class FormattingPreferences: ObservableObject {
+    static let shared = FormattingPreferences()
+
     @Published var formatSettings: [MarkdownElement: TextFormatting] = [:]
-    
-    private let userDefaults = UserDefaults.standard
+
+    private let userDefaults: UserDefaults
     private let formattingKey = "customFormatting"
-    
-    init() {
+
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
         loadFormatting()
     }
-    
+
     // MARK: - Public Methods
     func getFormatting(for element: MarkdownElement) -> TextFormatting {
         return formatSettings[element] ?? TextFormatting.defaultFormatting(for: element)
     }
-    
+
     func setFormatting(_ formatting: TextFormatting, for element: MarkdownElement) {
         formatSettings[element] = formatting
         saveFormatting()
     }
-    
+
     func resetToDefaults() {
         formatSettings.removeAll()
         for element in MarkdownElement.allCases {
@@ -194,18 +212,22 @@ class FormattingPreferences: ObservableObject {
         }
         saveFormatting()
     }
-    
+
     func resetElement(_ element: MarkdownElement) {
         formatSettings[element] = TextFormatting.defaultFormatting(for: element)
         saveFormatting()
     }
-    
+
+    func snapshot() -> FormattingSnapshot {
+        FormattingSnapshot(settings: formatSettings)
+    }
+
     // MARK: - Private Methods
     private func loadFormatting() {
         // Load saved formatting or initialize with defaults
         if let data = userDefaults.data(forKey: formattingKey),
            let decoded = try? JSONDecoder().decode([String: TextFormatting].self, from: data) {
-            
+
             // Convert string keys back to enum keys
             for (key, value) in decoded {
                 if let element = MarkdownElement(rawValue: key) {
@@ -213,7 +235,7 @@ class FormattingPreferences: ObservableObject {
                 }
             }
         }
-        
+
         // Ensure all elements have formatting (fill in any missing with defaults)
         for element in MarkdownElement.allCases {
             if formatSettings[element] == nil {
@@ -221,15 +243,51 @@ class FormattingPreferences: ObservableObject {
             }
         }
     }
-    
+
     private func saveFormatting() {
         // Convert enum keys to string keys for JSON encoding
         let stringKeyedSettings = formatSettings.reduce(into: [String: TextFormatting]()) { result, pair in
             result[pair.key.rawValue] = pair.value
         }
-        
+
         if let encoded = try? JSONEncoder().encode(stringKeyedSettings) {
             userDefaults.set(encoded, forKey: formattingKey)
+        }
+    }
+}
+
+// MARK: - Formatting Presets
+enum FormattingPreset: String, CaseIterable, Sendable {
+    case compact = "Compact"
+    case standard = "Standard"
+    case spacious = "Spacious"
+    case large = "Large"
+
+    var displayName: String { rawValue }
+
+    var iconName: String {
+        switch self {
+        case .compact: return "arrow.down.square"
+        case .standard: return "square"
+        case .spacious: return "arrow.up.square"
+        case .large: return "plus.square"
+        }
+    }
+
+    func apply(to formatting: inout TextFormatting, for element: MarkdownElement) {
+        switch self {
+        case .compact:
+            formatting.lineSpacing = 1.0
+            formatting.fontSize = max(10, formatting.fontSize - 2)
+        case .standard:
+            formatting.lineSpacing = 1.2
+            // Keep current font size
+        case .spacious:
+            formatting.lineSpacing = 1.6
+            formatting.fontSize = min(48, formatting.fontSize + 2)
+        case .large:
+            formatting.lineSpacing = 1.8
+            formatting.fontSize = min(72, formatting.fontSize + 4)
         }
     }
 }

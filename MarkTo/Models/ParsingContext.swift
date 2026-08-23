@@ -17,6 +17,7 @@ class ParsingContext {
     let baseFont: NSFont
     let codeFont: NSFont
     let headingFonts: [NSFont] // H1-H6 fonts
+    let formatting: FormattingSnapshot
     
     // Performance optimization - pre-compiled regex patterns
     static let headerPattern = try! NSRegularExpression(pattern: #"^#{1,6}\s+"#)
@@ -26,26 +27,66 @@ class ParsingContext {
     static let horizontalRulePattern = try! NSRegularExpression(pattern: #"^(\s{0,3})([-*_])\s*(\2\s*){2,}$"#)
     static let codeBlockPattern = try! NSRegularExpression(pattern: #"^```"#)
     
-    // Trimmed versions for optimized matching on pre-trimmed lines
-    static let unorderedListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+])\s"#)
-    static let orderedListTrimmedPattern = try! NSRegularExpression(pattern: #"^\d+\.\s"#)
-    static let taskListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+])\s*\[([ xX])\]\s"#)
-    static let anyListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+]|\d+\.)\s+"#)
+    // Trimmed variants are available to callers that have already discarded indentation.
+    static let unorderedListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+])\\s"#)
+    static let orderedListTrimmedPattern = try! NSRegularExpression(pattern: #"^\\d+\\.\\s"#)
+    static let taskListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+])\\s*\\[([ xX])\\]\\s"#)
+    static let anyListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+]|\\d+\\.)\\s+"#)
 
-    init(baseFont: NSFont = NSFont.systemFont(ofSize: 14), 
-         codeFont: NSFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)) {
-        self.baseFont = baseFont
-        self.codeFont = codeFont
-        
-        // Pre-calculate heading fonts for performance
+    init(
+        baseFont: NSFont = NSFont.systemFont(ofSize: 14),
+        codeFont: NSFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular),
+        formatting: FormattingSnapshot = .defaults
+    ) {
+        self.formatting = formatting
+        self.baseFont = Self.font(for: .body, formatting: formatting, fallback: baseFont)
+        self.codeFont = Self.font(for: .code, formatting: formatting, fallback: codeFont)
         self.headingFonts = [
-            NSFont.boldSystemFont(ofSize: 24), // H1
-            NSFont.boldSystemFont(ofSize: 20), // H2
-            NSFont.boldSystemFont(ofSize: 18), // H3
-            NSFont.boldSystemFont(ofSize: 16), // H4
-            NSFont.boldSystemFont(ofSize: 14), // H5
-            NSFont.boldSystemFont(ofSize: 13)  // H6
+            Self.font(for: .header1, formatting: formatting),
+            Self.font(for: .header2, formatting: formatting),
+            Self.font(for: .header3, formatting: formatting),
+            Self.font(for: .header4, formatting: formatting),
+            Self.font(for: .header5, formatting: formatting),
+            Self.font(for: .header6, formatting: formatting)
         ]
+    }
+
+    func font(for element: MarkdownElement) -> NSFont {
+        Self.font(for: element, formatting: formatting)
+    }
+
+    func paragraphStyle(for element: MarkdownElement) -> NSMutableParagraphStyle {
+        let elementFormatting = formatting.formatting(for: element)
+        let style = NSMutableParagraphStyle()
+        style.lineSpacing = max(0, elementFormatting.lineSpacing - 1.0) * elementFormatting.fontSize
+        return style
+    }
+
+    private static func font(
+        for element: MarkdownElement,
+        formatting: FormattingSnapshot,
+        fallback: NSFont? = nil
+    ) -> NSFont {
+        let elementFormatting = formatting.formatting(for: element)
+        let base: NSFont
+
+        if element == .code {
+            base = NSFont.monospacedSystemFont(
+                ofSize: elementFormatting.fontSize,
+                weight: elementFormatting.fontWeight.nsWeight
+            )
+        } else {
+            base = NSFont.systemFont(
+                ofSize: elementFormatting.fontSize,
+                weight: elementFormatting.fontWeight.nsWeight
+            )
+        }
+
+        if element == .italic {
+            return NSFontManager.shared.convert(base, toHaveTrait: .italicFontMask)
+        }
+
+        return base.pointSize > 0 ? base : (fallback ?? base)
     }
     
     func reset() {

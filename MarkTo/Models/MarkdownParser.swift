@@ -21,7 +21,7 @@ enum MarkdownParsingError: Error, LocalizedError {
 
 // MARK: - Main Markdown Parser
 /// Orchestrates the parsing of markdown content using specialized processors
-class MarkdownParser {
+final class MarkdownParser: @unchecked Sendable {
     
     // Component processors
     private let inlineProcessor: InlineProcessor
@@ -32,18 +32,23 @@ class MarkdownParser {
     // Configuration
     private let baseFont: NSFont
     private let codeFont: NSFont
+    private let formatting: FormattingSnapshot
     
     // Cached common strings to avoid reallocation
-    private static let newlineString = NSAttributedString(string: "\n")
+    private static var newlineString: NSAttributedString {
+        NSAttributedString(string: "\n")
+    }
 
     init(baseFont: NSFont = NSFont.systemFont(ofSize: 14),
-         codeFont: NSFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)) {
+         codeFont: NSFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular),
+         formatting: FormattingSnapshot = .defaults) {
         
         self.baseFont = baseFont
         self.codeFont = codeFont
+        self.formatting = formatting
         
         // Initialize processors
-        self.inlineProcessor = InlineProcessor()
+        self.inlineProcessor = InlineProcessor(formatting: formatting)
         self.listProcessor = ListProcessor(inlineProcessor: inlineProcessor)
         self.blockProcessor = BlockProcessor(inlineProcessor: inlineProcessor)
         self.tableProcessor = TableProcessor(inlineProcessor: inlineProcessor)
@@ -75,7 +80,11 @@ class MarkdownParser {
     
     private func parseMarkdown(_ markdown: String) throws -> NSAttributedString {
         let lines = markdown.components(separatedBy: .newlines)
-        let context = ParsingContext(baseFont: baseFont, codeFont: codeFont)
+        let context = ParsingContext(
+            baseFont: baseFont,
+            codeFont: codeFont,
+            formatting: formatting
+        )
         context.setTotalLines(lines.count)
         
         let result = NSMutableAttributedString()
@@ -181,39 +190,38 @@ class MarkdownParser {
             return blockProcessor.createBlockquote(text, context: context)
         }
         
-        let nsTrimmedLine = trimmedLine as NSString
-        let range = NSRange(location: 0, length: nsTrimmedLine.length)
+        let nsLine = line as NSString
+        let lineRange = NSRange(location: 0, length: nsLine.length)
+
+        // Task lists must be detected before unordered lists because both begin
+        // with the same bullet marker.
+        if let match = ParsingContext.taskListPattern.firstMatch(in: line, options: [], range: lineRange) {
+            let prefix = nsLine.substring(with: match.range)
+            let indentLevel = listProcessor.calculateIndentLevel(prefix)
+            let checkbox = nsLine.substring(with: match.range(at: 3))
+            let isChecked = checkbox == "x" || checkbox == "X"
+            let text = nsLine.substring(from: match.range.location + match.range.length)
+            context.listContext.updateWith(level: indentLevel, type: .task)
+            return listProcessor.createTaskListItem(text, isChecked: isChecked, level: indentLevel, context: context)
+        }
 
         // Check for unordered lists
-
-        if let match = ParsingContext.unorderedListPattern.firstMatch(in: trimmedLine, options: [], range: range) {
-            let prefix = nsTrimmedLine.substring(with: match.range)
+        if let match = ParsingContext.unorderedListPattern.firstMatch(in: line, options: [], range: lineRange) {
+            let prefix = nsLine.substring(with: match.range)
             let indentLevel = listProcessor.calculateIndentLevel(prefix)
-            let text = nsTrimmedLine.substring(from: match.range.upperBound)
+            let text = nsLine.substring(from: match.range.location + match.range.length)
             context.listContext.updateWith(level: indentLevel, type: .unordered)
             return listProcessor.createUnorderedListItem(text, level: indentLevel, context: context)
         }
         
         // Check for ordered lists
-        if let match = ParsingContext.orderedListPattern.firstMatch(in: trimmedLine, options: [], range: range) {
-            let prefix = nsTrimmedLine.substring(with: match.range)
+        if let match = ParsingContext.orderedListPattern.firstMatch(in: line, options: [], range: lineRange) {
+            let prefix = nsLine.substring(with: match.range)
             let indentLevel = listProcessor.calculateIndentLevel(prefix)
-            let numberText = nsTrimmedLine.substring(with: match.range).trimmingCharacters(in: .whitespaces)
-            let number = String(numberText.dropLast()) // Remove the dot
-            let text = nsTrimmedLine.substring(from: match.range.upperBound)
+            let number = nsLine.substring(with: match.range(at: 2))
+            let text = nsLine.substring(from: match.range.location + match.range.length)
             context.listContext.updateWith(level: indentLevel, type: .ordered)
             return listProcessor.createOrderedListItem(text, number: number, level: indentLevel, context: context)
-        }
-        
-        // Check for task lists
-        if let match = ParsingContext.taskListPattern.firstMatch(in: trimmedLine, options: [], range: range) {
-            let prefix = nsTrimmedLine.substring(with: match.range)
-            let indentLevel = listProcessor.calculateIndentLevel(prefix)
-            let checkbox = nsTrimmedLine.substring(with: match.range)
-            let isChecked = checkbox.contains("x") || checkbox.contains("X")
-            let text = nsTrimmedLine.substring(from: match.range.upperBound)
-            context.listContext.updateWith(level: indentLevel, type: .task)
-            return listProcessor.createTaskListItem(text, isChecked: isChecked, level: indentLevel, context: context)
         }
         
         // Check for definition lists
@@ -267,9 +275,10 @@ class MarkdownParser {
                 let line = lines[i]
                 if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
                     // Found closing marker
+                    let language = context.codeBlockLanguage
                     context.isInCodeBlock = false
                     context.codeBlockLanguage = nil
-                    let content = blockProcessor.createCodeBlock(codeLines, language: context.codeBlockLanguage, context: context)
+                    let content = blockProcessor.createCodeBlock(codeLines, language: language, context: context)
                     return (content: content, nextIndex: i + 1)
                 } else {
                     codeLines.append(line)
@@ -293,11 +302,31 @@ class MarkdownParser {
     
     private func processRegularText(_ line: String, context: ParsingContext) -> NSAttributedString {
         let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+        let bodyFormatting = context.formatting.formatting(for: .body)
+
+        func applyingBodyFormatting(to attributedString: NSAttributedString) -> NSAttributedString {
+            let result = NSMutableAttributedString(attributedString: attributedString)
+            guard result.length > 0 else { return result }
+            result.addAttributes(
+                [
+                    .paragraphStyle: context.paragraphStyle(for: .body),
+                    .kern: bodyFormatting.characterSpacing
+                ],
+                range: NSRange(location: 0, length: result.length)
+            )
+            return result
+        }
         
         // Check for double-space line break (markdown line break)
         if line.hasSuffix("  ") && !trimmedLine.isEmpty {
             let textWithoutTrailingSpaces = String(line.dropLast(2))
-            let content = inlineProcessor.processInlineMarkdown(textWithoutTrailingSpaces, baseFont: context.baseFont, codeFont: context.codeFont)
+            let content = applyingBodyFormatting(
+                to: inlineProcessor.processInlineMarkdown(
+                    textWithoutTrailingSpaces,
+                    baseFont: context.baseFont,
+                    codeFont: context.codeFont
+                )
+            )
             let result = NSMutableAttributedString()
             result.append(content)
             result.append(MarkdownParser.newlineString)  // Hard line break
@@ -305,6 +334,12 @@ class MarkdownParser {
         }
         
         // Regular paragraph text
-        return inlineProcessor.processInlineMarkdown(trimmedLine, baseFont: context.baseFont, codeFont: context.codeFont)
+        return applyingBodyFormatting(
+            to: inlineProcessor.processInlineMarkdown(
+                trimmedLine,
+                baseFont: context.baseFont,
+                codeFont: context.codeFont
+            )
+        )
     }
 }

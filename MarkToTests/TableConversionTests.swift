@@ -1,4 +1,5 @@
 import XCTest
+import AppKit
 @testable import MarkTo
 
 final class TableConversionTests: XCTestCase {
@@ -82,6 +83,7 @@ final class TableConversionTests: XCTestCase {
             
             XCTAssertTrue(foundBold, "Table should preserve bold formatting")
             XCTAssertTrue(foundItalic, "Table should preserve italic formatting")
+            XCTAssertTrue(foundCode, "Table should preserve inline-code formatting")
         case .failure(let error):
             XCTFail("Table conversion failed: \(error)")
         }
@@ -266,7 +268,10 @@ final class TableConversionTests: XCTestCase {
         // Valid separators
         XCTAssertTrue(tableProcessor.isHeaderSeparator(" |---|---| "), "Standard separator should be valid")
         XCTAssertTrue(tableProcessor.isHeaderSeparator("|:--:|:--|"), "Colons in separator should be valid")
-        XCTAssertTrue(tableProcessor.isHeaderSeparator("---"), "Simple dashes should be valid")
+        XCTAssertFalse(
+            tableProcessor.isHeaderSeparator("---"),
+            "A bare horizontal rule must not be misclassified as a table separator"
+        )
 
         // Invalid separators
         XCTAssertFalse(tableProcessor.isHeaderSeparator("| : | : |"), "Missing dash should be invalid")

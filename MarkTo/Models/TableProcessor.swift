@@ -1,361 +1,239 @@
 import Foundation
 import AppKit
 
-// MARK: - Table Processor
-/// Handles markdown table parsing and RTF table generation
-class TableProcessor {
-    private let inlineProcessor: InlineProcessor
-    
-    // Table parsing result
+/// Parses pipe-delimited Markdown tables and renders them as portable attributed
+/// text. The textual separators survive RTF serialization in TextEdit, Pages,
+/// Microsoft Word, and clipboard consumers that do not support NSTextTable.
+final class TableProcessor {
     struct TableParsingResult {
         let content: NSAttributedString
         let endIndex: Int
     }
-    
-    // Table data structure
-    struct TableData {
+
+    private struct TableData {
         let headerRow: [String]
         let dataRows: [[String]]
         let hasHeader: Bool
-        
+
         var maxColumns: Int {
-            max(headerRow.count, dataRows.map { $0.count }.max() ?? 0)
+            max(headerRow.count, dataRows.map(\.count).max() ?? 0)
         }
     }
-    
+
+    private let inlineProcessor: InlineProcessor
+
     init(inlineProcessor: InlineProcessor) {
         self.inlineProcessor = inlineProcessor
     }
-    
-    // MARK: - Public Methods
-    
-    /// Check if line represents a table row
+
+    /// A table row must be explicitly pipe-delimited. Requiring a leading or
+    /// trailing pipe avoids converting ordinary prose such as `A | B`.
     func isTableRow(_ line: String) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
-        
-        // Must contain at least one pipe character
-        guard trimmed.contains("|") else { return false }
-        
-        // Simple check: if it has pipes and isn't obviously something else
-        return true
+        guard trimmed.hasPrefix("|") || trimmed.hasSuffix("|") else { return false }
+        return unescapedPipeCount(in: trimmed) >= 2
     }
-    
-    /// Parse complete table structure starting from given index
-    func parseTable(lines: [String], startIndex: Int, context: ParsingContext) -> TableParsingResult {
+
+    func parseTable(
+        lines: [String],
+        startIndex: Int,
+        context: ParsingContext
+    ) -> TableParsingResult {
         var tableLines: [String] = []
         var currentIndex = startIndex
-        
-        // Collect consecutive table lines
-        while currentIndex < lines.count {
-            let line = lines[currentIndex]
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            
-            if isTableRow(trimmed) {
-                tableLines.append(line)
-                currentIndex += 1
-            } else {
-                break
-            }
+
+        while currentIndex < lines.count, isTableRow(lines[currentIndex]) {
+            tableLines.append(lines[currentIndex])
+            currentIndex += 1
         }
-        
-        // Parse the collected table lines
-        let tableData = parseTableData(tableLines)
-        let rtfTable = generateRTFTable(from: tableData, context: context)
-        
-        return TableParsingResult(content: rtfTable, endIndex: currentIndex)
+
+        let data = parseTableData(tableLines)
+        return TableParsingResult(
+            content: renderTable(data, context: context),
+            endIndex: currentIndex
+        )
     }
-    
-    // MARK: - Private Table Processing
-    
+
+    internal func isHeaderSeparator(_ line: String) -> Bool {
+        guard isTableRow(line) else { return false }
+        let cells = parseTableRow(line)
+        guard !cells.isEmpty else { return false }
+
+        return cells.allSatisfy { cell in
+            let marker = cell.trimmingCharacters(in: .whitespaces)
+                .trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+            return !marker.isEmpty && marker.allSatisfy { $0 == "-" }
+        }
+    }
+
     private func parseTableData(_ lines: [String]) -> TableData {
         guard !lines.isEmpty else {
             return TableData(headerRow: [], dataRows: [], hasHeader: false)
         }
-        
-        var processedLines: [String] = []
-        var hasHeader = false
-        
-        // Process lines and detect header separator
-        for (_, line) in lines.enumerated() {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            
-            // Check if this is a header separator line (contains only |, -, :, and spaces)
-            if isHeaderSeparator(trimmed) {
-                hasHeader = true
-                continue // Skip separator line
-            }
-            
-            processedLines.append(trimmed)
+
+        let hasHeader = lines.count > 1 && isHeaderSeparator(lines[1])
+        if hasHeader {
+            return TableData(
+                headerRow: parseTableRow(lines[0]),
+                dataRows: lines.dropFirst(2).map(parseTableRow),
+                hasHeader: true
+            )
         }
-        
-        guard !processedLines.isEmpty else {
-            return TableData(headerRow: [], dataRows: [], hasHeader: false)
-        }
-        
-        if hasHeader && processedLines.count > 1 {
-            let headerRow = parseTableRow(processedLines[0])
-            let dataRows = Array(processedLines[1...]).map { parseTableRow($0) }
-            return TableData(headerRow: headerRow, dataRows: dataRows, hasHeader: true)
-        } else {
-            let dataRows = processedLines.map { parseTableRow($0) }
-            return TableData(headerRow: [], dataRows: dataRows, hasHeader: false)
-        }
+
+        return TableData(
+            headerRow: [],
+            dataRows: lines.map(parseTableRow),
+            hasHeader: false
+        )
     }
-    
+
     private func parseTableRow(_ line: String) -> [String] {
+        var trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("|") { trimmed.removeFirst() }
+        if trimmed.hasSuffix("|") { trimmed.removeLast() }
+
         var cells: [String] = []
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        
-        // Remove leading and trailing pipes
-        var workingLine = trimmed
-        if workingLine.hasPrefix("|") {
-            workingLine = String(workingLine.dropFirst())
+        var current = ""
+        var isEscaped = false
+
+        for character in trimmed {
+            if isEscaped {
+                current.append(character)
+                isEscaped = false
+            } else if character == "\\" {
+                isEscaped = true
+            } else if character == "|" {
+                cells.append(current.trimmingCharacters(in: .whitespaces))
+                current = ""
+            } else {
+                current.append(character)
+            }
         }
-        if workingLine.hasSuffix("|") {
-            workingLine = String(workingLine.dropLast())
-        }
-        
-        // Split by pipes and clean up
-        let rawCells = workingLine.components(separatedBy: "|")
-        for cell in rawCells {
-            cells.append(cell.trimmingCharacters(in: .whitespaces))
-        }
-        
+
+        if isEscaped { current.append("\\") }
+        cells.append(current.trimmingCharacters(in: .whitespaces))
         return cells
     }
-    
-    internal func isHeaderSeparator(_ line: String) -> Bool {
-        let validChars = CharacterSet(charactersIn: "|-: ")
-        let lineCharSet = CharacterSet(charactersIn: line)
-        
-        // Must contain at least one dash and be composed only of valid characters
-        return line.contains("-") && validChars.isSuperset(of: lineCharSet)
-    }
-    
-    // MARK: - RTF Table Generation
-    
-    private func generateRTFTable(from tableData: TableData, context: ParsingContext) -> NSAttributedString {
-        // Native RTF table generation using NSTextTable
-        return generateNativeRTFTable(from: tableData, context: context)
-    }
+    private func renderTable(_ table: TableData, context: ParsingContext) -> NSAttributedString {
+        guard table.maxColumns > 0 else { return NSAttributedString() }
 
-    
-    private func generateNativeRTFTable(from tableData: TableData, context: ParsingContext) -> NSAttributedString {
+        let header = table.hasHeader ? renderCells(table.headerRow, context: context, isHeader: true) : []
+        let rows = table.dataRows.map { renderCells($0, context: context, isHeader: false) }
+        let allRows = (table.hasHeader ? [header] : []) + rows
+
+        let columnWidths = (0..<table.maxColumns).map { column in
+            max(
+                3,
+                allRows.compactMap { row in
+                    column < row.count ? row[column].string.count : nil
+                }.max() ?? 0
+            )
+        }
+
         let result = NSMutableAttributedString()
-        
-        // Create the table using NSTextTable (proper RTF table structure)
-        let textTable = NSTextTable()
-        textTable.numberOfColumns = tableData.maxColumns
-        textTable.layoutAlgorithm = .automaticLayoutAlgorithm
-        textTable.collapsesBorders = true
-        
-        // Configure table appearance
-        textTable.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.1)
-        
-        // Set column widths to be equal
-        // Set column widths indirectly through content width if needed, or rely on automatic layout
-        textTable.setContentWidth(100.0, type: .percentageValueType)
-        
-        // Add header row if present
-        if tableData.hasHeader && !tableData.headerRow.isEmpty {
-            let headerRow = createTableRow(
-                cells: tableData.headerRow,
-                table: textTable,
-                isHeader: true,
-                maxColumns: tableData.maxColumns,
-                rowIndex: 0,
-                context: context
-            )
-            result.append(headerRow)
+        if table.hasHeader {
+            appendRow(header, columnWidths: columnWidths, to: result, context: context)
+            appendSeparator(columnWidths: columnWidths, to: result, context: context)
         }
-        
-        // Add data rows
-        for (rowIndex, row) in tableData.dataRows.enumerated() {
-            let actualRowIndex = tableData.hasHeader ? rowIndex + 1 : rowIndex
-            let dataRow = createTableRow(
-                cells: row,
-                table: textTable,
-                isHeader: false,
-                maxColumns: tableData.maxColumns,
-                rowIndex: actualRowIndex,
-                context: context
-            )
-            result.append(dataRow)
+
+        for row in rows {
+            appendRow(row, columnWidths: columnWidths, to: result, context: context)
         }
-        
+
         return result
     }
 
+    private func renderCells(
+        _ cells: [String],
+        context: ParsingContext,
+        isHeader: Bool
+    ) -> [NSAttributedString] {
+        cells.map { cell in
+            let rendered = NSMutableAttributedString(
+                attributedString: inlineProcessor.processInlineMarkdown(
+                    cell,
+                    baseFont: context.baseFont,
+                    codeFont: context.codeFont
+                )
+            )
 
-    private func createTableRow(
-        cells: [String],
-        table: NSTextTable,
-        isHeader: Bool,
-        maxColumns: Int,
-        rowIndex: Int,
+            if isHeader, rendered.length > 0 {
+                rendered.enumerateAttribute(
+                    .font,
+                    in: NSRange(location: 0, length: rendered.length)
+                ) { value, range, _ in
+                    guard let font = value as? NSFont else { return }
+                    let traits = font.fontDescriptor.symbolicTraits.union(.bold)
+                    let descriptor = font.fontDescriptor.withSymbolicTraits(traits)
+                    let boldFont = NSFont(descriptor: descriptor, size: font.pointSize)
+                        ?? NSFont.boldSystemFont(ofSize: font.pointSize)
+                    rendered.addAttribute(.font, value: boldFont, range: range)
+                }
+            }
+
+            return rendered
+        }
+    }
+
+    private func appendRow(
+        _ cells: [NSAttributedString],
+        columnWidths: [Int],
+        to result: NSMutableAttributedString,
         context: ParsingContext
-    ) -> NSAttributedString {
-        let result = NSMutableAttributedString()
-        
-        for columnIndex in 0..<maxColumns {
-            let cellContent = columnIndex < cells.count ? cells[columnIndex] : ""
-            
-            // Create table cell block
-            let cellBlock = NSTextTableBlock(table: table, startingRow: rowIndex, rowSpan: 1, startingColumn: columnIndex, columnSpan: 1)
-            
-            // Configure cell appearance
-            cellBlock.setBorderColor(NSColor.separatorColor)
-            cellBlock.setWidth(0.5, type: .absoluteValueType, for: .border)
-            cellBlock.setContentWidth(100.0, type: .percentageValueType)
-            
-            // Set cell background
-            if isHeader {
-                cellBlock.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.3)
-            } else {
-                cellBlock.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.05)
+    ) {
+        for column in columnWidths.indices {
+            let cell = column < cells.count ? cells[column] : NSAttributedString()
+            result.append(cell)
+
+            let paddingCount = max(0, columnWidths[column] - cell.string.count)
+            if paddingCount > 0 {
+                result.append(NSAttributedString(
+                    string: String(repeating: " ", count: paddingCount),
+                    attributes: [.font: context.baseFont]
+                ))
             }
-            
-            // Set cell padding
-            cellBlock.setWidth(4.0, type: .absoluteValueType, for: .padding, edge: .minX)
-            cellBlock.setWidth(4.0, type: .absoluteValueType, for: .padding, edge: .maxX)
-            cellBlock.setWidth(2.0, type: .absoluteValueType, for: .padding, edge: .minY)
-            cellBlock.setWidth(2.0, type: .absoluteValueType, for: .padding, edge: .maxY)
-            
-            // Create paragraph style with table block
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.textBlocks = [cellBlock]
-            
-            // Set text alignment
-            paragraphStyle.alignment = .natural
-            
-            // Create attributed string for cell content
-            let font = isHeader ? NSFont.boldSystemFont(ofSize: 13) : NSFont.systemFont(ofSize: 13)
-            let cellAttributedString = NSAttributedString(
-                string: cellContent,
-                attributes: [
-                    .font: font,
-                    .paragraphStyle: paragraphStyle,
-                    .foregroundColor: NSColor.textColor
-                ]
-            )
-            
-            result.append(cellAttributedString)
-            
-            // Add paragraph break after each cell
-            result.append(NSAttributedString(string: "\n"))
+
+            if column < columnWidths.count - 1 {
+                result.append(NSAttributedString(
+                    string: " │ ",
+                    attributes: [.font: context.baseFont]
+                ))
+            }
         }
-        
-        return result
+        result.append(NSAttributedString(string: "\n"))
     }
 
-    
-    private func generateHTMLTable(from tableData: TableData) -> String {
-        var html = "<table border='1' cellpadding='4' cellspacing='0' style='border-collapse: collapse;'>"
-        
-        // Header row
-        if tableData.hasHeader && !tableData.headerRow.isEmpty {
-            html += "<tr>"
-            for cell in tableData.headerRow {
-                let escapedCell = escapeHTMLContent(cell)
-                html += "<th style='font-weight: bold; background-color: #f0f0f0;'>\(escapedCell)</th>"
-            }
-            html += "</tr>"
-        }
-        
-        // Data rows
-        for row in tableData.dataRows {
-            html += "<tr>"
-            for cell in row {
-                let escapedCell = escapeHTMLContent(cell)
-                html += "<td>\(escapedCell)</td>"
-            }
-            
-            // Fill empty cells to match max columns
-            for _ in row.count..<tableData.maxColumns {
-                html += "<td></td>"
-            }
-            html += "</tr>"
-        }
-        
-        html += "</table>"
-        return html
+    private func appendSeparator(
+        columnWidths: [Int],
+        to result: NSMutableAttributedString,
+        context: ParsingContext
+    ) {
+        let separator = columnWidths
+            .map { String(repeating: "─", count: $0) }
+            .joined(separator: "─┼─")
+        result.append(NSAttributedString(
+            string: separator + "\n",
+            attributes: [
+                .font: context.baseFont,
+                .foregroundColor: NSColor.separatorColor
+            ]
+        ))
     }
-    
-    private func generatePlainTextTable(from tableData: TableData, context: ParsingContext) -> NSAttributedString {
-        let result = NSMutableAttributedString()
-        
-        // Calculate column widths for alignment
-        var columnWidths: [Int] = []
-        for columnIndex in 0..<tableData.maxColumns {
-            var maxWidth = 0
-            
-            // Check header width
-            if tableData.hasHeader && columnIndex < tableData.headerRow.count {
-                maxWidth = max(maxWidth, tableData.headerRow[columnIndex].count)
+
+    private func unescapedPipeCount(in line: String) -> Int {
+        var count = 0
+        var isEscaped = false
+
+        for character in line {
+            if isEscaped {
+                isEscaped = false
+            } else if character == "\\" {
+                isEscaped = true
+            } else if character == "|" {
+                count += 1
             }
-            
-            // Check data rows width
-            for row in tableData.dataRows {
-                if columnIndex < row.count {
-                    maxWidth = max(maxWidth, row[columnIndex].count)
-                }
-            }
-            
-            columnWidths.append(max(maxWidth, 3)) // Minimum width of 3
         }
-        
-        // Generate header row if present
-        if tableData.hasHeader && !tableData.headerRow.isEmpty {
-            let headerString = NSMutableAttributedString()
-            
-            for (index, cell) in tableData.headerRow.enumerated() {
-                let paddedCell = cell.padding(toLength: columnWidths[index], withPad: " ", startingAt: 0)
-                let cellString = NSAttributedString(string: paddedCell, attributes: [.font: NSFont.boldSystemFont(ofSize: context.baseFont.pointSize)])
-                headerString.append(cellString)
-                
-                if index < tableData.headerRow.count - 1 {
-                    headerString.append(NSAttributedString(string: " │ "))
-                }
-            }
-            result.append(headerString)
-            result.append(NSAttributedString(string: "\n"))
-            
-            // Add separator line
-            var separatorLine = ""
-            for (index, width) in columnWidths.enumerated() {
-                separatorLine += String(repeating: "─", count: width)
-                if index < columnWidths.count - 1 {
-                    separatorLine += "─┼─"
-                }
-            }
-            result.append(NSAttributedString(string: separatorLine + "\n"))
-        }
-        
-        // Generate data rows
-        for row in tableData.dataRows {
-            let rowString = NSMutableAttributedString()
-            
-            for columnIndex in 0..<tableData.maxColumns {
-                let cellContent = columnIndex < row.count ? row[columnIndex] : ""
-                let paddedCell = cellContent.padding(toLength: columnWidths[columnIndex], withPad: " ", startingAt: 0)
-                let cellString = NSAttributedString(string: paddedCell, attributes: [.font: context.baseFont])
-                rowString.append(cellString)
-                
-                if columnIndex < tableData.maxColumns - 1 {
-                    rowString.append(NSAttributedString(string: " │ "))
-                }
-            }
-            result.append(rowString)
-            result.append(NSAttributedString(string: "\n"))
-        }
-        
-        return result
-    }
-    
-    private func escapeHTMLContent(_ text: String) -> String {
-        return text.replacingOccurrences(of: "&", with: "&amp;")
-                  .replacingOccurrences(of: "<", with: "&lt;")
-                  .replacingOccurrences(of: ">", with: "&gt;")
-                  .replacingOccurrences(of: "\"", with: "&quot;")
+
+        return count
     }
 }

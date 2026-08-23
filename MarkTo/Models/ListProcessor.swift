@@ -18,7 +18,11 @@ class ListProcessor {
     
     /// Process unordered list item
     func createUnorderedListItem<S: StringProtocol>(_ text: S, level: Int, context: ParsingContext) -> NSAttributedString {
-        let content = inlineProcessor.processInlineMarkdown(String(text), baseFont: context.baseFont, codeFont: context.codeFont)
+        let content = inlineProcessor.processInlineMarkdown(
+            String(text),
+            baseFont: context.font(for: .listItem),
+            codeFont: context.codeFont
+        )
         let result = NSMutableAttributedString(attributedString: content)
         
         // Get or create RTF list ID for this level and list type
@@ -49,7 +53,11 @@ class ListProcessor {
     
     /// Process ordered list item
     func createOrderedListItem<S1: StringProtocol, S2: StringProtocol>(_ text: S1, number: S2, level: Int, context: ParsingContext) -> NSAttributedString {
-        let content = inlineProcessor.processInlineMarkdown(String(text), baseFont: context.baseFont, codeFont: context.codeFont)
+        let content = inlineProcessor.processInlineMarkdown(
+            String(text),
+            baseFont: context.font(for: .listItem),
+            codeFont: context.codeFont
+        )
         let result = NSMutableAttributedString(attributedString: content)
         
         // Get or create RTF list ID for this level and list type
@@ -86,9 +94,13 @@ class ListProcessor {
         let checkbox = isChecked ? "☑ " : "☐ "
         
         let result = NSMutableAttributedString(string: checkbox)
-        result.addAttributes([.font: context.baseFont], range: NSRange(location: 0, length: result.length))
+        result.addAttributes([.font: context.font(for: .listItem)], range: NSRange(location: 0, length: result.length))
         
-        let content = inlineProcessor.processInlineMarkdown(String(text), baseFont: context.baseFont, codeFont: context.codeFont)
+        let content = inlineProcessor.processInlineMarkdown(
+            String(text),
+            baseFont: context.font(for: .listItem),
+            codeFont: context.codeFont
+        )
         let mutableContent = NSMutableAttributedString(attributedString: content)
         
         if isChecked {
@@ -116,9 +128,11 @@ class ListProcessor {
     
     /// Create list continuation (content that follows a list item)
     func createListContinuation(_ text: String, level: Int, context: ParsingContext) -> NSAttributedString {
-        let content = inlineProcessor.processInlineMarkdown(text.trimmingCharacters(in: .whitespaces), 
-                                                           baseFont: context.baseFont, 
-                                                           codeFont: context.codeFont)
+        let content = inlineProcessor.processInlineMarkdown(
+            text.trimmingCharacters(in: .whitespaces),
+            baseFont: context.font(for: .listItem),
+            codeFont: context.codeFont
+        )
         let result = NSMutableAttributedString(attributedString: content)
         
         // Apply paragraph style that continues the list indentation

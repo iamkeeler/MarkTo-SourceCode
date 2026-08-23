@@ -15,7 +15,7 @@ class FormattingViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     init(formattingPreferences: FormattingPreferences? = nil) {
-        self.formattingPreferences = formattingPreferences ?? FormattingPreferences()
+        self.formattingPreferences = formattingPreferences ?? .shared
         setupBindings()
     }
     

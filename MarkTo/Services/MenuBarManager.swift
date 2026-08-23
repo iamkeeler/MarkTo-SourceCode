@@ -13,12 +13,13 @@ class PopoverWindow: NSWindow {
     }
 }
 
+@MainActor
 class MenuBarManager: ObservableObject {
     private var statusItem: NSStatusItem?
     private var popoverWindow: NSWindow?
     private var settingsWindow: NSWindow?
-    private var globalClickMonitor: Any?
-    private var localClickMonitor: Any?
+    nonisolated(unsafe) private var globalClickMonitor: Any?
+    nonisolated(unsafe) private var localClickMonitor: Any?
     
     init() {
         setupMenuBar()
@@ -95,31 +96,51 @@ class MenuBarManager: ObservableObject {
     
     private func showDropdownWindow() {
         guard let statusButton = statusItem?.button else { return }
-        
-        // Create the content view for dropdown (keep borderless style)
-        let contentView = ContentView()
+
+        let windowSize = NSSize(width: 420, height: 410)
+        let buttonFrame = statusButton.convert(statusButton.bounds, to: nil)
+        let screenFrame = statusButton.window?.convertToScreen(buttonFrame) ?? .zero
+        let visibleFrame = statusButton.window?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+        let horizontalPadding: CGFloat = 8
+        let desiredX = screenFrame.midX - windowSize.width / 2
+        let minimumX = visibleFrame.minX + horizontalPadding
+        let maximumX = visibleFrame.maxX - windowSize.width - horizontalPadding
+        let originX = min(max(desiredX, minimumX), max(minimumX, maximumX))
+        let maximumArrowOffset = windowSize.width / 2 - 24
+        let arrowOffset = min(
+            max(screenFrame.midX - (originX + windowSize.width / 2), -maximumArrowOffset),
+            maximumArrowOffset
+        )
+
+        // Create the content view for dropdown
+        let contentView = ContentView(
+            isMenuBar: true,
+            onOpenSettings: { [weak self] in
+                self?.closeDropdownWindow()
+                self?.showSettings()
+            },
+            popoverArrowOffset: arrowOffset
+        )
+        .environmentObject(AppPreferences.shared)
         let hostingController = NSHostingController(rootView: contentView)
         
         // Create the dropdown window using our custom window class
-        let window = PopoverWindow(contentViewController: hostingController)
+        let window: NSWindow = PopoverWindow(contentViewController: hostingController)
         window.styleMask = [.borderless]
         window.backgroundColor = .clear
         window.isOpaque = false
         window.hasShadow = true
         window.level = .floating
-        window.setContentSize(NSSize(width: 420, height: 420))
+        window.setContentSize(windowSize)
         
         // Configure window for user interaction
         window.acceptsMouseMovedEvents = true
         window.ignoresMouseEvents = false
         
-        // Position the window below the status item
-        let buttonFrame = statusButton.convert(statusButton.bounds, to: nil)
-        let screenFrame = statusButton.window?.convertToScreen(buttonFrame) ?? .zero
-        
+        // Position the window below the status item with 4pt space for the upward uptick
         let windowOrigin = NSPoint(
-            x: screenFrame.midX - window.frame.width / 2,
-            y: screenFrame.minY - window.frame.height - 5
+            x: originX,
+            y: screenFrame.minY - window.frame.height - 4
         )
         
         window.setFrameOrigin(windowOrigin)
@@ -155,7 +176,7 @@ class MenuBarManager: ObservableObject {
         
         // Find and show the main window
         for window in NSApplication.shared.windows {
-            if window.contentViewController is NSHostingController<ContentView> {
+            if !(window is PopoverWindow) && window != settingsWindow && window.title == "MarkTo" {
                 window.makeKeyAndOrderFront(self)
                 return
             }
@@ -164,10 +185,11 @@ class MenuBarManager: ObservableObject {
         // If no window exists, create one with navigation support
         let contentView = ContentView()
             .navigationTitle("MarkTo")
+            .environmentObject(AppPreferences.shared)
         let hostingController = NSHostingController(rootView: contentView)
         let window = NSWindow(contentViewController: hostingController)
         window.title = "MarkTo"
-        window.setContentSize(NSSize(width: 400, height: 380))
+        window.setContentSize(NSSize(width: 420, height: 380))
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.center()
         window.makeKeyAndOrderFront(self)
@@ -176,11 +198,12 @@ class MenuBarManager: ObservableObject {
     @objc private func showSettings() {
         if settingsWindow == nil {
             let settingsView = SettingsView()
+                .environmentObject(AppPreferences.shared)
             let hostingController = NSHostingController(rootView: settingsView)
             
             settingsWindow = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 450, height: 500),
-                styleMask: [.titled, .closable, .miniaturizable],
+                contentRect: NSRect(x: 0, y: 0, width: 500, height: 600),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
             )
@@ -188,6 +211,7 @@ class MenuBarManager: ObservableObject {
             settingsWindow?.title = "Settings"
             settingsWindow?.contentViewController = hostingController
             settingsWindow?.isReleasedWhenClosed = false
+            settingsWindow?.minSize = NSSize(width: 500, height: 600)
             settingsWindow?.center()
             
             // Apply subtle glass styling while keeping the titlebar functional
@@ -199,13 +223,21 @@ class MenuBarManager: ObservableObject {
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    func openSettings() {
+        showSettings()
+    }
     
     @objc private func quitApp() {
         NSApplication.shared.terminate(nil)
     }
     
     deinit {
-        closeDropdownWindow()
-        statusItem = nil
+        if let monitor = globalClickMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        if let monitor = localClickMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
     }
 }
