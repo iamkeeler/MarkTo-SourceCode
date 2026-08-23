@@ -309,7 +309,6 @@ struct FormattingCustomizationView: View {
             // Spacing Section
             spacingSection
             
-            // Character Spacing (for code elements)
             if viewModel.selectedElement == .code {
                 advancedSection
             }

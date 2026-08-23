@@ -114,7 +114,6 @@ final class TableProcessor {
         cells.append(current.trimmingCharacters(in: .whitespaces))
         return cells
     }
-
     private func renderTable(_ table: TableData, context: ParsingContext) -> NSAttributedString {
         guard table.maxColumns > 0 else { return NSAttributedString() }
 
