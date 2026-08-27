@@ -333,15 +333,9 @@ struct TestRunner {
             Visit [Attach Design](https://attach.design) for more details.
             """
 
-            // 1. Exercise clipboard-content validation without depending on a
-            // GUI pasteboard server in headless CI.
-            let vm = MainViewModel()
-            vm.loadClipboardContent(sampleDoc)
-            assert(vm.markdownText == sampleDoc, "MainViewModel accepts valid markdown clipboard content")
-
-            // 2. Convert markdown to RTF
+            // 1. Convert Markdown to RTF.
             let converter = MarkdownConverter()
-            let result = converter.convertToRTF(vm.markdownText)
+            let result = converter.convertToRTF(sampleDoc)
 
             guard case .success(let attributedString) = result else {
                 assert(false, "Full document conversion produced success result")
@@ -349,7 +343,7 @@ struct TestRunner {
             }
             assert(true, "Full document conversion produced success result")
 
-            // 3. Generate an RTF byte payload
+            // 2. Generate an RTF byte payload.
             guard let rtfData = try? attributedString.data(
                 from: NSRange(location: 0, length: attributedString.length),
                 documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
@@ -359,7 +353,7 @@ struct TestRunner {
             }
             assert(rtfData.count > 0, "Serialized attributed string into non-empty RTF binary payload")
 
-            // 4. Simulate a destination app (Pages / Word / TextEdit) decoding
+            // 3. Simulate a destination app (Pages / Word / TextEdit) decoding
             // the exact RTF payload that MarkTo writes to the pasteboard.
             guard let destinationAttr = try? NSAttributedString(
                     data: rtfData,

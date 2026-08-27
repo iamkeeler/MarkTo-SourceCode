@@ -63,20 +63,6 @@ final class MainViewModel: ObservableObject {
         }
     }
 
-    func loadClipboardContent() {
-        loadClipboardContent(NSPasteboard.general.string(forType: .string))
-    }
-
-    func loadClipboardContent(_ clipboardText: String?) {
-        guard let clipboardText else { return }
-
-        // Only load if it looks like markdown and isn't too long
-        if clipboardText.count < 10000 && containsMarkdownSyntax(clipboardText) {
-            markdownText = clipboardText
-            showStatus("Loaded content from clipboard", isSuccess: true)
-        }
-    }
-
     func loadFile(at url: URL) {
         let hasSecurityScope = url.startAccessingSecurityScopedResource()
         defer {
@@ -154,23 +140,6 @@ final class MainViewModel: ObservableObject {
             showStatus("Created \(output.outputURL.lastPathComponent)", isSuccess: true)
         case .failure(let error):
             showStatus(error.localizedDescription, isSuccess: false)
-        }
-    }
-
-    private func containsMarkdownSyntax(_ text: String) -> Bool {
-        let markdownPatterns = [
-            #"^#{1,6}\s"#,          // Headers
-            #"\*\*.*\*\*"#,         // Bold
-            #"\*.*\*"#,             // Italic
-            #"`.*`"#,               // Code
-            #"^\s*[-\*\+]\s"#,      // Lists
-            #"^\s*\d+\.\s"#,        // Numbered lists
-            #"```"#,                // Code blocks
-            #"\[.*\]\(.*\)"#        // Links
-        ]
-
-        return markdownPatterns.contains { pattern in
-            text.range(of: pattern, options: .regularExpression) != nil
         }
     }
 

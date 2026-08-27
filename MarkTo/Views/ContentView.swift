@@ -5,7 +5,6 @@ struct ContentView: View {
     @StateObject private var viewModel = MainViewModel()
     @AppStorage("fontSize") private var fontSize: Double = 14
     @AppStorage("showCharacterCount") private var showCharacterCount: Bool = true
-    @AppStorage("autoLoadClipboard") private var autoLoadClipboard: Bool = true
     var isMenuBar: Bool = false
     var onOpenSettings: (() -> Void)? = nil
     var popoverArrowOffset: CGFloat = 0
@@ -28,11 +27,6 @@ struct ContentView: View {
         .navigationTitle("MarkTo")
         .background { containerBackground }
         .mask { containerMask }
-        .onAppear {
-            if autoLoadClipboard {
-                viewModel.loadClipboardContent()
-            }
-        }
         .onDrop(of: [UTType.fileURL], isTargeted: $isFileDropTargeted, perform: handleFileDrop(providers:))
         .overlay { fileDropOverlay }
         .onReceive(NotificationCenter.default.publisher(for: .markdownFileConversionCompleted)) { notification in

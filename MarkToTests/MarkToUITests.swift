@@ -1,4 +1,5 @@
 import XCTest
+import AppKit
 
 final class MarkToUITests: XCTestCase {
     @MainActor
@@ -6,11 +7,26 @@ final class MarkToUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += [
             "-hideOnStartup", "NO",
-            "-hideDockIcon", "NO",
-            "-autoLoadClipboard", "NO"
+            "-hideDockIcon", "NO"
         ]
         app.launch()
         return app
+    }
+
+    @MainActor
+    func testLaunchDoesNotReadClipboard() throws {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString("# Clipboard content must stay private", forType: .string)
+        defer { pasteboard.clearContents() }
+
+        let app = launchApp()
+        let window = app.windows["MarkTo"]
+        XCTAssertTrue(window.waitForExistence(timeout: 3.0))
+
+        let textEditor = window.textViews["Markdown input text editor"]
+        XCTAssertTrue(textEditor.exists)
+        XCTAssertEqual(textEditor.value as? String, "", "Launching MarkTo must not read clipboard content")
     }
 
     @MainActor
