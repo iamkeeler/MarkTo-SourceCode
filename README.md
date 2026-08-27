@@ -67,7 +67,7 @@ Your Markdown content never leaves your device. MarkTo only accesses:
 
 ## 🗺 Roadmap
 
-### Current Version (1.0.3)
+### Current Version (1.0.4)
 - ✅ Core Markdown to RTF conversion
 - ✅ Full Markdown table support with native RTF table formatting
 - ✅ Menu bar integration & Hide Dock Icon mode
@@ -134,6 +134,20 @@ open MarkTo.xcodeproj
 # Build and run (⌘R in Xcode)
 # Or from command line:
 xcodebuild -project MarkTo.xcodeproj -scheme MarkTo -configuration Release build
+```
+
+### Distribution Builds
+
+- Use the `MarkTo` scheme with the `Release` configuration for the Developer ID-signed, notarized direct-download build.
+- Use the `MarkTo-AppStore` scheme to archive for App Store Connect. Its `AppStore` configuration enables App Sandbox and signs with `MarkTo-AppStore.entitlements`.
+
+```bash
+xcodebuild \
+  -project MarkTo.xcodeproj \
+  -scheme MarkTo-AppStore \
+  -configuration AppStore \
+  -destination "generic/platform=macOS" \
+  archive
 ```
 
 ## 🤝 Contributing

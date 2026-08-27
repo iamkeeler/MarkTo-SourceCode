@@ -49,6 +49,14 @@ struct SettingsView: View {
                     }
                     .help("Automatically start MarkTo when you log in to your Mac")
 
+                    if let message = appSettings.loginItemMessage {
+                        Label(message, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel("Start at Login status: \(message)")
+                    }
+
                 } header: {
                     Label("App Behavior", systemImage: "gear")
                 } footer: {
@@ -264,6 +272,9 @@ struct SettingsView: View {
             .formStyle(.grouped)
             .navigationTitle("Settings")
             .frame(width: 500, height: 600)
+            .task {
+                appSettings.refreshLoginItemStatus()
+            }
             .navigationDestination(for: String.self) { destination in
                 if destination == "formatting" {
                     FormattingCustomizationView()
