@@ -30,6 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Apply initial dock icon visibility
         AppPreferences.shared.applyDockIconVisibility()
+        AppPreferences.shared.refreshLoginItemStatus()
 
         // If hide on startup is enabled, hide non-popover windows on launch
         if AppPreferences.shared.hideOnStartup {

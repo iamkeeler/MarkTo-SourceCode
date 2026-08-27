@@ -7,9 +7,9 @@
 	<key>CFBundleName</key>
 	<string>MarkTo</string>
 	<key>CFBundleVersion</key>
-	<string>15</string>
+	<string>16</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.3</string>
+	<string>1.0.4</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.attachdesign.markto</string>
 	<key>LSApplicationCategoryType</key>

@@ -1,9 +1,36 @@
 import XCTest
 import AppKit
+import ServiceManagement
 @testable import MarkTo
 
 @MainActor
 final class AppPreferencesTests: XCTestCase {
+
+    private final class MockLoginItemService: LoginItemManaging {
+        enum MockError: LocalizedError {
+            case operationFailed
+
+            var errorDescription: String? { "Mock login-item failure" }
+        }
+
+        var status: SMAppService.Status = .notRegistered
+        var registerError: Error?
+        var unregisterError: Error?
+        private(set) var registerCallCount = 0
+        private(set) var unregisterCallCount = 0
+
+        func register() throws {
+            registerCallCount += 1
+            if let registerError { throw registerError }
+            status = .enabled
+        }
+
+        func unregister() throws {
+            unregisterCallCount += 1
+            if let unregisterError { throw unregisterError }
+            status = .notRegistered
+        }
+    }
 
     private func makeTestDefaults() -> (defaults: UserDefaults, suiteName: String) {
         let suiteName = "com.attachdesign.markto.tests.\(UUID().uuidString)"
@@ -54,6 +81,57 @@ final class AppPreferencesTests: XCTestCase {
 
         let reloadedPrefs = AppPreferences(userDefaults: testUserDefaults, appliesSystemChanges: false)
         XCTAssertTrue(reloadedPrefs.hideDockIcon, "Reloaded AppPreferences should reflect saved hideDockIcon state")
+    }
+
+    func testRefreshLoginItemStatusReconcilesSavedPreferenceWithoutRegistration() {
+        let (testUserDefaults, suiteName) = makeTestDefaults()
+        defer { testUserDefaults.removePersistentDomain(forName: suiteName) }
+        testUserDefaults.set(true, forKey: AppPreferences.Keys.startAtLogin)
+        let loginItemService = MockLoginItemService()
+        let prefs = AppPreferences(
+            userDefaults: testUserDefaults,
+            loginItemService: loginItemService
+        )
+
+        prefs.refreshLoginItemStatus()
+
+        XCTAssertFalse(prefs.startAtLogin)
+        XCTAssertFalse(testUserDefaults.bool(forKey: AppPreferences.Keys.startAtLogin))
+        XCTAssertEqual(loginItemService.unregisterCallCount, 0)
+    }
+
+    func testLoginItemRegistrationFailureRollsBackAndReportsError() {
+        let (testUserDefaults, suiteName) = makeTestDefaults()
+        defer { testUserDefaults.removePersistentDomain(forName: suiteName) }
+        let loginItemService = MockLoginItemService()
+        loginItemService.registerError = MockLoginItemService.MockError.operationFailed
+        let prefs = AppPreferences(
+            userDefaults: testUserDefaults,
+            loginItemService: loginItemService
+        )
+
+        prefs.startAtLogin = true
+
+        XCTAssertFalse(prefs.startAtLogin)
+        XCTAssertFalse(testUserDefaults.bool(forKey: AppPreferences.Keys.startAtLogin))
+        XCTAssertEqual(loginItemService.registerCallCount, 1)
+        XCTAssertTrue(prefs.loginItemMessage?.contains("Mock login-item failure") == true)
+    }
+
+    func testLoginItemRequiresApprovalRollsBackAndProvidesInstructions() {
+        let (testUserDefaults, suiteName) = makeTestDefaults()
+        defer { testUserDefaults.removePersistentDomain(forName: suiteName) }
+        let loginItemService = MockLoginItemService()
+        loginItemService.status = .requiresApproval
+        let prefs = AppPreferences(
+            userDefaults: testUserDefaults,
+            loginItemService: loginItemService
+        )
+
+        prefs.refreshLoginItemStatus()
+
+        XCTAssertFalse(prefs.startAtLogin)
+        XCTAssertTrue(prefs.loginItemMessage?.contains("System Settings") == true)
     }
 
     func testAppDelegateTerminationBehavior() {
