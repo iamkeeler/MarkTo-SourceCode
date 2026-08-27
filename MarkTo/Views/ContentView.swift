@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var viewModel = MainViewModel()
@@ -10,6 +11,7 @@ struct ContentView: View {
     var popoverArrowOffset: CGFloat = 0
 
     @State private var isHoveringSettings = false
+    @State private var isFileDropTargeted = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -31,9 +33,13 @@ struct ContentView: View {
                 viewModel.loadClipboardContent()
             }
         }
-        .onOpenURL { url in
-            guard url.isFileURL else { return }
-            viewModel.loadFile(at: url)
+        .onDrop(of: [UTType.fileURL], isTargeted: $isFileDropTargeted, perform: handleFileDrop(providers:))
+        .overlay { fileDropOverlay }
+        .onReceive(NotificationCenter.default.publisher(for: .markdownFileConversionCompleted)) { notification in
+            guard let result = notification.userInfo?["result"] as? Result<MarkdownFileConversionResult, MarkdownFileConversionError> else {
+                return
+            }
+            viewModel.handleExternalFileConversion(result)
         }
     }
 
@@ -72,6 +78,14 @@ struct ContentView: View {
                         .strokeBorder(.quaternary, lineWidth: 0.5)
                 }
                 .accessibilityLabel("Markdown input text editor")
+                // TextEditor normally inserts a dropped file URL as text. Handle the
+                // drop here as well as on the enclosing surface so it becomes an export.
+                .onDrop(of: [UTType.fileURL], isTargeted: $isFileDropTargeted, perform: handleFileDrop(providers:))
+
+            Text("Drop a .md file here to create a sibling RTF document")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
     }
 
@@ -172,6 +186,56 @@ struct ContentView: View {
             removal: .scale(scale: 0.9).combined(with: .opacity)
         ))
         .accessibilityLabel("Status: \(viewModel.statusMessage)")
+    }
+
+    @ViewBuilder
+    private var fileDropOverlay: some View {
+        if isFileDropTargeted {
+            RoundedRectangle(cornerRadius: isMenuBar ? 16 : 20)
+                .fill(.tint.opacity(0.14))
+                .overlay {
+                    VStack(spacing: 8) {
+                        Image(systemName: "doc.badge.arrow.up")
+                            .font(.system(size: 28, weight: .medium))
+                        Text("Convert Markdown File")
+                            .font(.headline)
+                        Text("Creates an RTF beside the source file")
+                            .font(.subheadline)
+                    }
+                    .foregroundStyle(.tint)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: isMenuBar ? 16 : 20)
+                        .strokeBorder(.tint, style: StrokeStyle(lineWidth: 2, dash: [6]))
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func handleFileDrop(providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first(where: {
+            $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+        }) else {
+            return false
+        }
+
+        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+            let url: URL?
+            if let itemURL = item as? URL {
+                url = itemURL
+            } else if let data = item as? Data {
+                url = URL(dataRepresentation: data, relativeTo: nil)
+            } else {
+                url = nil
+            }
+
+            guard let url else { return }
+            Task { @MainActor in
+                viewModel.convertMarkdownFile(at: url)
+            }
+        }
+        return true
     }
 
     @ViewBuilder

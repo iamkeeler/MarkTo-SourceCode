@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 // Custom window class that can become key and main
 class PopoverWindow: NSWindow {
@@ -54,6 +55,7 @@ class MenuBarManager: ObservableObject {
         let menu = NSMenu()
         
         menu.addItem(NSMenuItem(title: "Show Main Window", action: #selector(showMainWindow), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Convert Markdown File...", action: #selector(chooseMarkdownFiles), keyEquivalent: "o"))
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit MarkTo", action: #selector(quitApp), keyEquivalent: "q"))
@@ -193,6 +195,41 @@ class MenuBarManager: ObservableObject {
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.center()
         window.makeKeyAndOrderFront(self)
+    }
+
+    @objc private func chooseMarkdownFiles() {
+        let panel = NSOpenPanel()
+        panel.title = "Convert Markdown Files"
+        panel.prompt = "Convert"
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "md"),
+            UTType(filenameExtension: "markdown")
+        ].compactMap { $0 }
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+
+        guard panel.runModal() == .OK else { return }
+        convertMarkdownDocuments(at: panel.urls)
+    }
+
+    private func convertMarkdownDocuments(at urls: [URL]) {
+        let converter = MarkdownFileConverter(
+            formatting: FormattingPreferences.shared.snapshot()
+        )
+
+        Task { @MainActor in
+            for url in urls where MarkdownFileConverter.supports(url) {
+                let result = await Task.detached(priority: .userInitiated) {
+                    converter.convertFile(at: url)
+                }.value
+
+                NotificationCenter.default.post(
+                    name: .markdownFileConversionCompleted,
+                    object: nil,
+                    userInfo: ["result": result]
+                )
+            }
+        }
     }
     
     @objc private func showSettings() {

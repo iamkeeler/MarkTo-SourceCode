@@ -1,6 +1,10 @@
 import SwiftUI
 import AppKit
 
+extension Notification.Name {
+    static let markdownFileConversionCompleted = Notification.Name("markdownFileConversionCompleted")
+}
+
 @main
 struct MarkToApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -56,5 +60,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         // Keep running in menu bar even if window is closed
         return false
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        convertMarkdownDocuments(at: urls)
+    }
+
+    func application(_ application: NSApplication, openFiles filenames: [String]) {
+        convertMarkdownDocuments(at: filenames.map(URL.init(fileURLWithPath:)))
+    }
+
+    private func convertMarkdownDocuments(at urls: [URL]) {
+        let markdownURLs = urls.filter(MarkdownFileConverter.supports)
+        guard !markdownURLs.isEmpty else { return }
+
+        let converter = MarkdownFileConverter(
+            formatting: FormattingPreferences.shared.snapshot()
+        )
+
+        Task { @MainActor in
+            for url in markdownURLs {
+                let result = await Task.detached(priority: .userInitiated) {
+                    converter.convertFile(at: url)
+                }.value
+
+                NotificationCenter.default.post(
+                    name: .markdownFileConversionCompleted,
+                    object: nil,
+                    userInfo: ["result": result]
+                )
+            }
+        }
     }
 }

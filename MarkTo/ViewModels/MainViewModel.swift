@@ -7,6 +7,10 @@ private struct ConversionOutcome: @unchecked Sendable {
     let processingTime: TimeInterval
 }
 
+private struct FileConversionOutcome: @unchecked Sendable {
+    let result: Result<MarkdownFileConversionResult, MarkdownFileConversionError>
+}
+
 @MainActor
 final class MainViewModel: ObservableObject {
     @Published var markdownText: String = "" {
@@ -89,6 +93,37 @@ final class MainViewModel: ObservableObject {
         }
     }
 
+    func convertMarkdownFile(at url: URL) {
+        guard MarkdownFileConverter.supports(url) else {
+            showStatus("Drop a .md or .markdown file", isSuccess: false)
+            return
+        }
+
+        isConverting = true
+        clearStatus()
+
+        let converter = MarkdownFileConverter(
+            formatting: FormattingPreferences.shared.snapshot()
+        )
+
+        conversionTask?.cancel()
+        conversionTask = Task { [weak self] in
+            let outcome = await Task.detached(priority: .userInitiated) {
+                FileConversionOutcome(result: converter.convertFile(at: url))
+            }.value
+
+            guard !Task.isCancelled else { return }
+            self?.isConverting = false
+            self?.handleFileConversionResult(outcome.result)
+        }
+    }
+
+    func handleExternalFileConversion(
+        _ result: Result<MarkdownFileConversionResult, MarkdownFileConversionError>
+    ) {
+        handleFileConversionResult(result)
+    }
+
     func clearText() {
         markdownText = ""
         clearStatus()
@@ -107,6 +142,18 @@ final class MainViewModel: ObservableObject {
             showStatus("RTF copied to clipboard! (\(timeText)ms)", isSuccess: true)
         case .failure(let error):
             showStatus("Error: \(error.localizedDescription)", isSuccess: false)
+        }
+    }
+
+    private func handleFileConversionResult(
+        _ result: Result<MarkdownFileConversionResult, MarkdownFileConversionError>
+    ) {
+        switch result {
+        case .success(let output):
+            markdownText = output.markdown
+            showStatus("Created \(output.outputURL.lastPathComponent)", isSuccess: true)
+        case .failure(let error):
+            showStatus(error.localizedDescription, isSuccess: false)
         }
     }
 

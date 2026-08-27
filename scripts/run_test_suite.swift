@@ -405,6 +405,47 @@ struct TestRunner {
             assert(hasLinkAttribute, "Pasted RTF preserves hyperlink attributes")
         }
 
+        // MARK: - 6. Markdown File Conversion
+        runSuite("Markdown File Conversion") {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("MarkToFileConversion-\(UUID().uuidString)", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+
+            let sourceURL = directory.appendingPathComponent("Release Notes.md")
+            let existingOutputURL = directory.appendingPathComponent("Release Notes.rtf")
+            let markdown = "# Release Notes\n\n**Ready** for launch."
+            try markdown.write(to: sourceURL, atomically: true, encoding: .utf8)
+            try Data("existing export".utf8).write(to: existingOutputURL)
+
+            let result = MarkdownFileConverter().convertFile(at: sourceURL)
+            guard case .success(let conversion) = result else {
+                assert(false, "Markdown file conversion completes successfully")
+                return
+            }
+
+            assert(conversion.outputURL.lastPathComponent == "Release Notes 2.rtf", "Existing RTF exports are never overwritten")
+            assert(conversion.markdown == markdown, "Converted source is returned for display in the editor")
+            assert((try? Data(contentsOf: existingOutputURL)) == Data("existing export".utf8), "Existing export contents are preserved")
+
+            let exportedDocument = try NSAttributedString(
+                url: conversion.outputURL,
+                options: [.documentType: NSAttributedString.DocumentType.rtf],
+                documentAttributes: nil
+            )
+            assert(exportedDocument.string.contains("Release Notes"), "Sibling RTF contains the Markdown title")
+            assert(exportedDocument.string.contains("Ready"), "Sibling RTF contains the Markdown body")
+
+            let unsupportedResult = MarkdownFileConverter().convertFile(
+                at: directory.appendingPathComponent("NotMarkdown.txt")
+            )
+            if case .failure(.unsupportedFile) = unsupportedResult {
+                assert(true, "Unsupported file types are rejected before reading")
+            } else {
+                assert(false, "Unsupported file types are rejected before reading")
+            }
+        }
+
 
         // MARK: - Final Summary
         print("\n" + String(repeating: "=", count: 50))
