@@ -56,10 +56,10 @@ final class MarkdownConverter: @unchecked Sendable {
     
     // MARK: - Public API
     
-    /// Convert markdown text to RTF
+    /// Convert markdown text to an attributed string (RTF-ready)
     /// - Parameter markdown: Raw markdown text
     /// - Returns: Result containing NSAttributedString or error
-    func convertToRTF(_ markdown: String) -> Result<NSAttributedString, MarkdownConversionError> {
+    func convertToAttributedString(_ markdown: String) -> Result<NSAttributedString, MarkdownConversionError> {
         guard !markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return .failure(.invalidInput)
         }
@@ -79,7 +79,7 @@ final class MarkdownConverter: @unchecked Sendable {
     ///   - markdown: Raw markdown text
     ///   - options: Additional processing options
     /// - Returns: Result containing NSAttributedString or error
-    func convertToRTF(_ markdown: String, options: ConversionOptions) -> Result<NSAttributedString, MarkdownConversionError> {
+    func convertToAttributedString(_ markdown: String, options: ConversionOptions) -> Result<NSAttributedString, MarkdownConversionError> {
         var processedMarkdown = markdown
         
         // Pre-process based on options
@@ -91,7 +91,7 @@ final class MarkdownConverter: @unchecked Sendable {
             processedMarkdown = removeTrailingWhitespace(processedMarkdown)
         }
         
-        return convertToRTF(processedMarkdown)
+        return convertToAttributedString(processedMarkdown)
     }
     
     // MARK: - Conversion Options

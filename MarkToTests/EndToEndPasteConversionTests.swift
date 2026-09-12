@@ -42,7 +42,7 @@ final class EndToEndPasteConversionTests: XCTestCase {
     func testFullRTFConversionWorkflow() {
         // 1. Perform conversion directly with MarkdownConverter to inspect the exact RTF.
         let converter = MarkdownConverter()
-        let conversionResult = converter.convertToRTF(sampleMarkdown)
+        let conversionResult = converter.convertToAttributedString(sampleMarkdown)
 
         guard case .success(let attributedString) = conversionResult else {
             XCTFail("Conversion failed unexpectedly")

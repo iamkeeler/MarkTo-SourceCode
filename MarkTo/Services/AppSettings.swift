@@ -109,11 +109,6 @@ class AppPreferences: ObservableObject {
         }
     }
 
-    // Check if app is currently set to start at login
-    func checkLoginItemStatus() -> Bool {
-        loginItemService.status == .enabled
-    }
-
     // Refresh the start at login setting from the system
     func refreshLoginItemStatus() {
         synchronizeLoginItemStatus()

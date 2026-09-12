@@ -24,7 +24,7 @@ final class TableConversionTests: XCTestCase {
         | Jane | 30 | LA |
         """
         
-        let result = converter.convertToRTF(markdown)
+        let result = converter.convertToAttributedString(markdown)
         
         switch result {
         case .success(let attributedString):
@@ -49,7 +49,7 @@ final class TableConversionTests: XCTestCase {
         | Lists | Complete | `Medium` |
         """
         
-        let result = converter.convertToRTF(markdown)
+        let result = converter.convertToAttributedString(markdown)
         
         switch result {
         case .success(let attributedString):
@@ -96,7 +96,7 @@ final class TableConversionTests: XCTestCase {
         | Paragraph | Text |
         """
         
-        let result = converter.convertToRTF(markdown)
+        let result = converter.convertToAttributedString(markdown)
         
         switch result {
         case .success(let attributedString):
@@ -121,7 +121,7 @@ final class TableConversionTests: XCTestCase {
         | Google | <https://google.com> |
         """
         
-        let result = converter.convertToRTF(markdown)
+        let result = converter.convertToAttributedString(markdown)
         
         switch result {
         case .success(let attributedString):
@@ -154,7 +154,7 @@ final class TableConversionTests: XCTestCase {
         | 1 | 2 |
         """
         
-        let result = converter.convertToRTF(markdown)
+        let result = converter.convertToAttributedString(markdown)
         
         switch result {
         case .success(let attributedString):
@@ -177,7 +177,7 @@ final class TableConversionTests: XCTestCase {
         | | |
         """
         
-        let result = converter.convertToRTF(markdown)
+        let result = converter.convertToAttributedString(markdown)
         
         switch result {
         case .success(let attributedString):
@@ -205,7 +205,7 @@ final class TableConversionTests: XCTestCase {
         - List item 2
         """
         
-        let result = converter.convertToRTF(markdown)
+        let result = converter.convertToAttributedString(markdown)
         
         switch result {
         case .success(let attributedString):
@@ -231,7 +231,7 @@ final class TableConversionTests: XCTestCase {
         | John | 25  |
         """
 
-        let resultNoDash = converter.convertToRTF(markdownNoDash)
+        let resultNoDash = converter.convertToAttributedString(markdownNoDash)
 
         switch resultNoDash {
         case .success(let attributedString):
@@ -249,7 +249,7 @@ final class TableConversionTests: XCTestCase {
         | John | 25  |
         """
 
-        let resultInvalidChars = converter.convertToRTF(markdownInvalidChars)
+        let resultInvalidChars = converter.convertToAttributedString(markdownInvalidChars)
 
         switch resultInvalidChars {
         case .success(let attributedString):

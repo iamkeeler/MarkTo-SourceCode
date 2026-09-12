@@ -1,5 +1,6 @@
 import Foundation
-import SwiftUI
+import Combine
+import AppKit
 
 // MARK: - Markdown Elements
 enum MarkdownElement: String, CaseIterable, Identifiable, Sendable {

@@ -2,12 +2,25 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @StateObject private var viewModel = MainViewModel()
+    @StateObject private var viewModel: MainViewModel
     @AppStorage("fontSize") private var fontSize: Double = 14
     @AppStorage("showCharacterCount") private var showCharacterCount: Bool = true
     var isMenuBar: Bool = false
     var onOpenSettings: (() -> Void)? = nil
     var popoverArrowOffset: CGFloat = 0
+
+    init(
+        viewModel: MainViewModel? = nil,
+        isMenuBar: Bool = false,
+        onOpenSettings: (() -> Void)? = nil,
+        popoverArrowOffset: CGFloat = 0
+    ) {
+        // An injected view model keeps popover text alive across dismiss/reopen.
+        _viewModel = StateObject(wrappedValue: viewModel ?? MainViewModel())
+        self.isMenuBar = isMenuBar
+        self.onOpenSettings = onOpenSettings
+        self.popoverArrowOffset = popoverArrowOffset
+    }
 
     @State private var isHoveringSettings = false
     @State private var isFileDropTargeted = false
