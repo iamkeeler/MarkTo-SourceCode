@@ -71,28 +71,29 @@ class BlockProcessor {
     // MARK: - Blockquote Processing
     
     /// Create blockquote with visual indicator
-    func createBlockquote(_ text: String, context: ParsingContext) -> NSAttributedString {
+    func createBlockquote(_ text: String, depth: Int = 1, context: ParsingContext) -> NSAttributedString {
         let result = NSMutableAttributedString(string: "▌ ")
         let blockquoteFont = context.font(for: .blockquote)
         result.addAttributes([
             .foregroundColor: NSColor.quaternaryLabelColor,
             .font: blockquoteFont
         ], range: NSRange(location: 0, length: 2))
-        
+
         let content = inlineProcessor.processInlineMarkdown(
             text,
             baseFont: blockquoteFont,
             codeFont: context.codeFont
         )
         result.append(content)
-        
-        // Add left margin/padding effect
+
+        // Add left margin/padding effect, deepening with nesting depth
+        let indent = CGFloat(20 * max(1, depth))
         let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.firstLineHeadIndent = 20
-        paragraphStyle.headIndent = 20
+        paragraphStyle.firstLineHeadIndent = indent
+        paragraphStyle.headIndent = indent
         paragraphStyle.lineSpacing = context.paragraphStyle(for: .blockquote).lineSpacing
         result.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: result.length))
-        
+
         return result
     }
     
@@ -117,18 +118,6 @@ class BlockProcessor {
         result.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: result.length))
         
         return result
-    }
-    
-    /// Create single line code block (indented with 4+ spaces)
-    func createIndentedCodeBlock(_ line: String, context: ParsingContext) -> NSAttributedString {
-        // Remove the 4-space indentation
-        let codeText = String(line.dropFirst(4))
-        
-        return NSAttributedString(string: codeText, attributes: [
-            .font: context.codeFont,
-            .foregroundColor: NSColor.textColor,
-            .backgroundColor: NSColor.controlBackgroundColor
-        ])
     }
     
     // MARK: - Horizontal Rule Processing
@@ -179,24 +168,9 @@ class BlockProcessor {
     /// Check if line is a horizontal rule
     func isHorizontalRule(_ line: String) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
-        
-        // Must be at least 3 characters
-        guard trimmed.count >= 3 else { return false }
-        
-        // Check for --- or *** or ___
-        let hrPatterns = ["---", "***", "___"]
-        for pattern in hrPatterns {
-            if trimmed.hasPrefix(pattern) {
-                // Ensure the rest are the same character or spaces
-                let char = pattern.first!
-                let valid = trimmed.allSatisfy { $0 == char || $0 == " " }
-                if valid && trimmed.filter({ $0 == char }).count >= 3 {
-                    return true
-                }
-            }
-        }
-        
-        return false
+        let range = NSRange(location: 0, length: (trimmed as NSString).length)
+        // Handles "---", "***", "___" as well as spaced variants like "- - -".
+        return ParsingContext.horizontalRulePattern.firstMatch(in: trimmed, options: [], range: range) != nil
     }
     
     /// Detect header level from line
@@ -222,8 +196,14 @@ class BlockProcessor {
         
         if let match = ParsingContext.headerPattern.firstMatch(in: trimmed, options: [], range: range) {
             let text = nsTrimmed.substring(from: match.range.upperBound)
-            // Remove trailing # if present
-            return text.trimmingCharacters(in: CharacterSet(charactersIn: "# "))
+            // Remove a closing sequence of #'s (e.g. "## Title ##"). Per CommonMark
+            // the sequence only counts when preceded by a space, so "# C#" keeps its "#".
+            let stripped = (text as NSString).replacingOccurrences(
+                of: "\\s+#+\\s*$",
+                with: "",
+                options: .regularExpression
+            )
+            return stripped.trimmingCharacters(in: .whitespaces)
         }
         
         return trimmed

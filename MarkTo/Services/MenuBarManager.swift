@@ -20,7 +20,9 @@ class MenuBarManager: ObservableObject {
     private var popoverWindow: NSWindow?
     private var settingsWindow: NSWindow?
     nonisolated(unsafe) private var globalClickMonitor: Any?
-    nonisolated(unsafe) private var localClickMonitor: Any?
+
+    // Long-lived so popover text survives dismiss/reopen (H2).
+    private var popoverViewModel = MainViewModel()
     
     init() {
         setupMenuBar()
@@ -53,12 +55,20 @@ class MenuBarManager: ObservableObject {
     
     private func showContextMenu() {
         let menu = NSMenu()
-        
-        menu.addItem(NSMenuItem(title: "Show Main Window", action: #selector(showMainWindow), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Convert Markdown File...", action: #selector(chooseMarkdownFiles), keyEquivalent: "o"))
-        menu.addItem(NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: ","))
+
+        let showItem = NSMenuItem(title: "Show Main Window", action: #selector(showMainWindow), keyEquivalent: "")
+        let convertItem = NSMenuItem(title: "Convert Markdown File...", action: #selector(chooseMarkdownFiles), keyEquivalent: "o")
+        convertItem.keyEquivalentModifierMask = .command
+        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: ",")
+        settingsItem.keyEquivalentModifierMask = .command
+        let quitItem = NSMenuItem(title: "Quit MarkTo", action: #selector(quitApp), keyEquivalent: "q")
+        quitItem.keyEquivalentModifierMask = .command
+
+        menu.addItem(showItem)
+        menu.addItem(convertItem)
+        menu.addItem(settingsItem)
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Quit MarkTo", action: #selector(quitApp), keyEquivalent: "q"))
+        menu.addItem(quitItem)
         
         // Set targets for menu items
         for item in menu.items {
@@ -84,15 +94,11 @@ class MenuBarManager: ObservableObject {
     private func closeDropdownWindow() {
         popoverWindow?.orderOut(self)
         popoverWindow = nil
-        
-        // Remove click monitors
+
+        // Remove click monitor
         if let monitor = globalClickMonitor {
             NSEvent.removeMonitor(monitor)
             globalClickMonitor = nil
-        }
-        if let monitor = localClickMonitor {
-            NSEvent.removeMonitor(monitor)
-            localClickMonitor = nil
         }
     }
     
@@ -114,8 +120,10 @@ class MenuBarManager: ObservableObject {
             maximumArrowOffset
         )
 
-        // Create the content view for dropdown
+        // Create the content view for dropdown, reusing the long-lived view model
+        // so typed markdown survives dismiss/reopen.
         let contentView = ContentView(
+            viewModel: popoverViewModel,
             isMenuBar: true,
             onOpenSettings: { [weak self] in
                 self?.closeDropdownWindow()
@@ -154,7 +162,7 @@ class MenuBarManager: ObservableObject {
         // Store reference to the window
         popoverWindow = window
         
-        // Add observers to close window when clicking outside
+        // Add observer to close window when clicking outside
         globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             if let window = self?.popoverWindow {
                 let windowFrame = window.frame
@@ -164,12 +172,6 @@ class MenuBarManager: ObservableObject {
                     self?.closeDropdownWindow()
                 }
             }
-        }
-        
-        // Add local monitor to handle clicks inside the window
-        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
-            // Return the event to allow normal processing within the window
-            return event
         }
     }
     
@@ -213,23 +215,10 @@ class MenuBarManager: ObservableObject {
     }
 
     private func convertMarkdownDocuments(at urls: [URL]) {
-        let converter = MarkdownFileConverter(
+        MarkdownFileConverter.convertAndNotify(
+            urls: urls,
             formatting: FormattingPreferences.shared.snapshot()
         )
-
-        Task { @MainActor in
-            for url in urls where MarkdownFileConverter.supports(url) {
-                let result = await Task.detached(priority: .userInitiated) {
-                    converter.convertFile(at: url)
-                }.value
-
-                NotificationCenter.default.post(
-                    name: .markdownFileConversionCompleted,
-                    object: nil,
-                    userInfo: ["result": result]
-                )
-            }
-        }
     }
     
     @objc private func showSettings() {
@@ -271,9 +260,6 @@ class MenuBarManager: ObservableObject {
     
     deinit {
         if let monitor = globalClickMonitor {
-            NSEvent.removeMonitor(monitor)
-        }
-        if let monitor = localClickMonitor {
             NSEvent.removeMonitor(monitor)
         }
     }

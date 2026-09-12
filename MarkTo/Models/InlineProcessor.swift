@@ -12,7 +12,9 @@ final class InlineProcessor {
     private let formatting: FormattingSnapshot
     
     // Pre-compiled patterns for performance - using safe, simple patterns
-    private static let escapePattern = try! NSRegularExpression(pattern: #"\\(.)"#)
+    private static let escapePattern = try! NSRegularExpression(pattern: ##"\\([!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])"##)
+    private static let tripleEmphasisPattern = try! NSRegularExpression(pattern: #"\*\*\*(.+?)\*\*\*"#)
+    private static let tripleUnderscorePattern = try! NSRegularExpression(pattern: #"___(.+?)___"#)
     private static let boldPattern = try! NSRegularExpression(pattern: #"\*\*(.*?)\*\*"#)
     private static let boldUnderscorePattern = try! NSRegularExpression(pattern: #"__(.*?)__"#)
     private static let italicPattern = try! NSRegularExpression(pattern: #"\*(.*?)\*"#)
@@ -21,7 +23,7 @@ final class InlineProcessor {
     private static let strikethroughPattern = try! NSRegularExpression(pattern: #"~~(.*?)~~"#)
     private static let linkPattern = try! NSRegularExpression(pattern: #"\[([^\]]+)\]\(([^)]+)\)"#)
     private static let autoLinkPattern = try! NSRegularExpression(pattern: #"<(https?://[^>]+|[^@\s]+@[^@\s]+\.[^@\s]+)>"#)
-    private static let bareURLPattern = try! NSRegularExpression(pattern: #"\b(https?://[^\s<>"`{}\\]{1,100})\b"#)
+    private static let bareURLPattern = try! NSRegularExpression(pattern: #"\b(https?://[^\s<>\"`{}\\]+)"#)
     private static let emojiPattern = try! NSRegularExpression(pattern: #":([a-zA-Z0-9_+-]{1,32}):"#)
     private static let imagePattern = try! NSRegularExpression(pattern: #"!\[([^\]]*)\]\(([^)]+)\)"#)
 
@@ -42,12 +44,15 @@ final class InlineProcessor {
         let code = protectMatches(in: escaped.text, pattern: Self.codePattern, prefix: "CODE")
         let result = NSMutableAttributedString(string: code.text, attributes: [.font: baseFont])
         
-        // Process in specific order to handle overlapping patterns correctly
+        // Process in specific order to handle overlapping patterns correctly.
+        // Images and links run before italic so underscores inside alt text or
+        // link targets are not misread as emphasis markers.
         processStrikethrough(in: result, baseFont: baseFont)
+        processTripleEmphasis(in: result, baseFont: baseFont)
         processBold(in: result, baseFont: baseFont)
-        processItalic(in: result, baseFont: baseFont)
         processImages(in: result, baseFont: baseFont)
         processLinks(in: result, baseFont: baseFont)
+        processItalic(in: result, baseFont: baseFont)
         processAutoLinks(in: result, baseFont: baseFont)
         processBareURLs(in: result, baseFont: baseFont)
         processEmojis(in: result, baseFont: baseFont)
@@ -62,6 +67,10 @@ final class InlineProcessor {
     
     private func processStrikethrough(in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         let string = attributedString.string
+
+        // Safety check: skip processing if string is too long to prevent hangs
+        guard string.count < 10000 else { return }
+
         let nsString = string as NSString
         let range = NSRange(location: 0, length: nsString.length)
         
@@ -87,6 +96,45 @@ final class InlineProcessor {
         }
     }
     
+    /// Process ***bold-italic*** (and ___ variant) before the double-marker
+    /// passes so triple markers are not misread as bold plus a stray marker.
+    private func processTripleEmphasis(in attributedString: NSMutableAttributedString, baseFont: NSFont) {
+        processTripleEmphasisPattern(Self.tripleEmphasisPattern, in: attributedString, baseFont: baseFont)
+        processTripleEmphasisPattern(Self.tripleUnderscorePattern, in: attributedString, baseFont: baseFont)
+    }
+
+    private func processTripleEmphasisPattern(_ pattern: NSRegularExpression, in attributedString: NSMutableAttributedString, baseFont: NSFont) {
+        let string = attributedString.string
+
+        // Safety check: skip processing if string is too long to prevent hangs
+        guard string.count < 10000 else { return }
+
+        let nsString = string as NSString
+        let range = NSRange(location: 0, length: nsString.length)
+
+        let matches = pattern.matches(in: string, range: range)
+        guard !matches.isEmpty else { return }
+
+        let emphasisFormatting = formatting.formatting(for: .bold)
+        let boldBase = NSFont.systemFont(
+            ofSize: emphasisFormatting.fontSize,
+            weight: emphasisFormatting.fontWeight.nsWeight
+        )
+        let boldItalicFont = NSFontManager.shared.convert(boldBase, toHaveTrait: [.boldFontMask, .italicFontMask])
+        let attributes: [NSAttributedString.Key: Any] = [.font: boldItalicFont]
+
+        for match in matches.reversed() {
+            let fullRange = match.range
+            let contentRange = match.range(at: 1)
+
+            let content = nsString.substring(with: contentRange)
+            attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
+                string: content,
+                attributes: attributes
+            ))
+        }
+    }
+
     private func processBold(in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         // Process ** bold ** first
         processBoldPattern(Self.boldPattern, in: attributedString, baseFont: baseFont)
@@ -97,6 +145,10 @@ final class InlineProcessor {
     
     private func processBoldPattern(_ pattern: NSRegularExpression, in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         let string = attributedString.string
+
+        // Safety check: skip processing if string is too long to prevent hangs
+        guard string.count < 10000 else { return }
+
         let nsString = string as NSString
         let range = NSRange(location: 0, length: nsString.length)
         
@@ -129,6 +181,10 @@ final class InlineProcessor {
     
     private func processItalicPattern(_ pattern: NSRegularExpression, in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         let string = attributedString.string
+
+        // Safety check: skip processing if string is too long to prevent hangs
+        guard string.count < 10000 else { return }
+
         let nsString = string as NSString
         let range = NSRange(location: 0, length: nsString.length)
         
@@ -195,9 +251,24 @@ final class InlineProcessor {
         for match in matches.reversed() {
             let fullRange = match.range
             let urlRange = match.range(at: 1)
-            
-            let url = nsString.substring(with: urlRange)
-            attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
+
+            var url = nsString.substring(with: urlRange)
+            // Trim trailing sentence punctuation the greedy pattern swept up.
+            // A trailing ")" is trimmed only when it would unbalance the URL.
+            while let last = url.last, ".,;:!?".contains(last) {
+                url.removeLast()
+            }
+            if url.hasSuffix(")") {
+                let opens = url.filter { $0 == "(" }.count
+                let closes = url.filter { $0 == ")" }.count
+                if closes > opens {
+                    url.removeLast()
+                }
+            }
+            guard !url.isEmpty else { continue }
+
+            let linkRange = NSRange(location: urlRange.location, length: (url as NSString).length)
+            attributedString.replaceCharacters(in: linkRange, with: NSAttributedString(
                 string: url,
                 attributes: [
                     .font: baseFont,
@@ -206,9 +277,16 @@ final class InlineProcessor {
                     .link: url
                     ]
             ))
+            // Remove any leftover characters the trim left behind (e.g. "." or ")")
+            // so they render as plain text immediately after the link.
+            let leftoverRange = NSRange(location: linkRange.location + linkRange.length, length: fullRange.length - linkRange.length)
+            if leftoverRange.length > 0 {
+                let leftover = nsString.substring(with: NSRange(location: fullRange.location + linkRange.length, length: leftoverRange.length))
+                attributedString.replaceCharacters(in: leftoverRange, with: NSAttributedString(string: leftover, attributes: [.font: baseFont]))
+            }
         }
     }
-    
+
     private func processBareURLs(in attributedString: NSMutableAttributedString, baseFont: NSFont) {
         let string = attributedString.string
         let nsString = string as NSString
@@ -221,11 +299,27 @@ final class InlineProcessor {
         let matches = Self.bareURLPattern.matches(in: string, range: range)
         
         for match in matches.reversed() {
-            let fullRange = match.range
             let urlRange = match.range(at: 1)
             
-            let url = nsString.substring(with: urlRange)
-            attributedString.replaceCharacters(in: fullRange, with: NSAttributedString(
+            var url = nsString.substring(with: urlRange)
+            // Trim trailing sentence punctuation the greedy pattern swept up.
+            // A trailing ")" is trimmed only when it would unbalance the URL,
+            // e.g. "(see https://example.com/a)" keeps the paren outside the link.
+            while let last = url.last, ".,;:!?".contains(last) {
+                url.removeLast()
+            }
+            if url.hasSuffix(")") {
+                let opens = url.filter { $0 == "(" }.count
+                let closes = url.filter { $0 == ")" }.count
+                if closes > opens {
+                    url.removeLast()
+                }
+            }
+            guard !url.isEmpty else { continue }
+
+            let linkLength = (url as NSString).length
+            let linkRange = NSRange(location: urlRange.location, length: linkLength)
+            attributedString.replaceCharacters(in: linkRange, with: NSAttributedString(
                 string: url,
                 attributes: [
                     .font: baseFont,
@@ -234,6 +328,8 @@ final class InlineProcessor {
                     .link: url
                     ]
             ))
+            // Any trimmed trailing characters (".", ")", …) remain in place
+            // with their existing attributes, rendering as plain text.
         }
     }
     

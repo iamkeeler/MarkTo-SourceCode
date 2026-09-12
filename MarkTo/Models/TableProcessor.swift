@@ -26,11 +26,12 @@ final class TableProcessor {
         self.inlineProcessor = inlineProcessor
     }
 
-    /// A table row must be explicitly pipe-delimited. Requiring a leading or
-    /// trailing pipe avoids converting ordinary prose such as `A | B`.
+    /// A table row must be explicitly pipe-delimited on both sides. Requiring a
+    /// leading *and* trailing pipe avoids converting ordinary prose such as
+    /// `A | B` — or headers like `# | a |` — into tables.
     func isTableRow(_ line: String) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
-        guard trimmed.hasPrefix("|") || trimmed.hasSuffix("|") else { return false }
+        guard trimmed.hasPrefix("|") && trimmed.hasSuffix("|") else { return false }
         return unescapedPipeCount(in: trimmed) >= 2
     }
 
@@ -125,7 +126,7 @@ final class TableProcessor {
             max(
                 3,
                 allRows.compactMap { row in
-                    column < row.count ? row[column].string.count : nil
+                    column < row.count ? Self.displayWidth(of: row[column].string) : nil
                 }.max() ?? 0
             )
         }
@@ -185,7 +186,7 @@ final class TableProcessor {
             let cell = column < cells.count ? cells[column] : NSAttributedString()
             result.append(cell)
 
-            let paddingCount = max(0, columnWidths[column] - cell.string.count)
+            let paddingCount = max(0, columnWidths[column] - Self.displayWidth(of: cell.string))
             if paddingCount > 0 {
                 result.append(NSAttributedString(
                     string: String(repeating: " ", count: paddingCount),
@@ -218,6 +219,32 @@ final class TableProcessor {
                 .foregroundColor: NSColor.separatorColor
             ]
         ))
+    }
+
+    /// Terminal-style display width: CJK wide characters and most emoji count
+    /// as two columns so box-drawing tables stay aligned.
+    private static func displayWidth(of string: String) -> Int {
+        string.reduce(0) { partial, character in
+            partial + (character.isASCII ? 1 : (isWideCharacter(character) ? 2 : 1))
+        }
+    }
+
+    private static func isWideCharacter(_ character: Character) -> Bool {
+        guard let value = character.unicodeScalars.first?.value else { return false }
+        switch value {
+        case 0x1100...0x115F, // Hangul Jamo
+             0x2E80...0xA4CF, // CJK radicals … Yi
+             0xAC00...0xD7A3, // Hangul syllables
+             0xF900...0xFAFF, // CJK compatibility ideographs
+             0xFE30...0xFE4F, // CJK compatibility forms
+             0xFF00...0xFF60, // Fullwidth forms
+             0xFFE0...0xFFE6, // Fullwidth symbols
+             0x1F300...0x1FAFF, // Emoji blocks
+             0x20000...0x3FFFD: // CJK Extension B and beyond
+            return true
+        default:
+            return false
+        }
     }
 
     private func unescapedPipeCount(in line: String) -> Int {

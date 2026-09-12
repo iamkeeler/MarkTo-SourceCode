@@ -27,17 +27,11 @@ class ListProcessor {
         
         // Get or create RTF list ID for this level and list type
         let listId = getOrCreateListId(level: level, isOrdered: false)
-        
+
         // Create paragraph style with proper RTF list attributes for MS Word compatibility
         let paragraphStyle = NSMutableParagraphStyle()
-        
-        // Configure indentation based on level
-        let baseIndent: CGFloat = 20.0 * CGFloat(level)
-        paragraphStyle.firstLineHeadIndent = baseIndent
-        paragraphStyle.headIndent = baseIndent + 20.0
-        paragraphStyle.tailIndent = 0
         paragraphStyle.paragraphSpacing = 2.0
-        
+
         // Apply MS Word compatible list formatting
         applyWordCompatibleListFormatting(
             to: result,
@@ -62,19 +56,12 @@ class ListProcessor {
         
         // Get or create RTF list ID for this level and list type
         let listId = getOrCreateListId(level: level, isOrdered: true)
-        
+
+        // Paragraph style is fully configured by applyWordCompatibleListFormatting
+        let paragraphStyle = NSMutableParagraphStyle()
+
         // Get numeric value for proper numbering
         let itemNumber = Int(String(number)) ?? 1
-        
-        // Create paragraph style with proper RTF list attributes for MS Word compatibility
-        let paragraphStyle = NSMutableParagraphStyle()
-        
-        // Configure indentation based on level
-        let baseIndent: CGFloat = 20.0 * CGFloat(level)
-        paragraphStyle.firstLineHeadIndent = baseIndent
-        paragraphStyle.headIndent = baseIndent + 25.0 // Slightly wider for numbers
-        paragraphStyle.tailIndent = 0
-        paragraphStyle.paragraphSpacing = 2.0
         
         // Apply MS Word compatible list formatting
         applyWordCompatibleListFormatting(
@@ -234,27 +221,6 @@ class ListProcessor {
         let isDefinition = trimmed.hasPrefix(": ")
         
         return isUnordered || isOrdered || isTask || isDefinition
-    }
-    
-    /// Get appropriate list level from line content
-    func getListLevel(_ line: String) -> Int {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        let nsTrimmed = trimmed as NSString
-        let range = NSRange(location: 0, length: nsTrimmed.length)
-        
-        // Find the list marker and calculate indent level
-        if let match = ParsingContext.anyListTrimmedPattern.firstMatch(in: trimmed, options: [], range: range) {
-            let prefix = nsTrimmed.substring(with: match.range)
-            return calculateIndentLevel(prefix)
-        }
-        
-        // For task lists
-        if let match = ParsingContext.taskListTrimmedPattern.firstMatch(in: trimmed, options: [], range: range) {
-            let prefix = nsTrimmed.substring(with: match.range)
-            return calculateIndentLevel(prefix)
-        }
-        
-        return 0
     }
     
     // MARK: - MS Word Compatibility Methods

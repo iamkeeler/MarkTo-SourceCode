@@ -47,7 +47,7 @@ final class MainViewModel: ObservableObject {
         conversionTask = Task { [weak self] in
             let outcome = await Task.detached(priority: .userInitiated) {
                 let startTime = CFAbsoluteTimeGetCurrent()
-                let result = converter.convertToRTF(textToConvert)
+                let result = converter.convertToAttributedString(textToConvert)
                 return ConversionOutcome(
                     result: result,
                     processingTime: CFAbsoluteTimeGetCurrent() - startTime
@@ -64,6 +64,12 @@ final class MainViewModel: ObservableObject {
     }
 
     func loadFile(at url: URL) {
+        let fileSize = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+        guard fileSize <= MarkdownFileConverter.maxFileSize else {
+            showStatus("\(url.lastPathComponent) is too large to open", isSuccess: false)
+            return
+        }
+
         let hasSecurityScope = url.startAccessingSecurityScopedResource()
         defer {
             if hasSecurityScope {
@@ -136,7 +142,11 @@ final class MainViewModel: ObservableObject {
     ) {
         switch result {
         case .success(let output):
-            markdownText = output.markdown
+            // Only populate the editor when it is empty; never clobber text
+            // the user already typed.
+            if markdownText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                markdownText = output.markdown
+            }
             showStatus("Created \(output.outputURL.lastPathComponent)", isSuccess: true)
         case .failure(let error):
             showStatus(error.localizedDescription, isSuccess: false)
@@ -154,8 +164,10 @@ final class MainViewModel: ObservableObject {
         }
 
         pasteboard.clearContents()
-        let wroteRTF = pasteboard.setData(rtfData, forType: .rtf)
+        // Write the plain-text fallback first so a failed RTF write still
+        // leaves usable text on the clipboard instead of nothing.
         let wrotePlainText = pasteboard.setString(attributedString.string, forType: .string)
+        let wroteRTF = pasteboard.setData(rtfData, forType: .rtf)
         return wroteRTF && wrotePlainText
     }
 

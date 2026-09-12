@@ -151,10 +151,18 @@ final class MarkdownParser: @unchecked Sendable {
             return tableResult.content
         }
         
+        // Check for definition lists before the plain-text fast path so the
+        // ":" fast-path exclusion is unnecessary.
+        if trimmedLine.hasPrefix(": ") {
+            let text = String(trimmedLine.dropFirst(2))
+            context.listContext.updateWith(level: 1, type: .definition)
+            return blockProcessor.createDefinition(text, context: context)
+        }
+
         // Quick check for plain text to optimize common case
         if !trimmedLine.isEmpty {
             let firstChar = trimmedLine.first!
-            let hasMarkdownChars = trimmedLine.contains("*") || trimmedLine.contains("_") || trimmedLine.contains("`") || trimmedLine.contains("[") || trimmedLine.contains("<") || trimmedLine.contains("!") || trimmedLine.contains("~") || trimmedLine.contains(":")
+            let hasMarkdownChars = trimmedLine.contains("*") || trimmedLine.contains("_") || trimmedLine.contains("`") || trimmedLine.contains("[") || trimmedLine.contains("<") || trimmedLine.contains("!") || trimmedLine.contains("~")
 
             if !hasMarkdownChars &&
                firstChar != "#" && firstChar != ">" && firstChar != "-" && firstChar != "*" && firstChar != "+" && firstChar != "|" && !firstChar.isNumber {
@@ -183,11 +191,17 @@ final class MarkdownParser: @unchecked Sendable {
             return blockProcessor.createHeading(headerText, level: headerLevel, context: context)
         }
         
-        // Check for blockquotes
-        if trimmedLine.hasPrefix("> ") {
-            let text = String(trimmedLine.dropFirst(2))
+        // Check for blockquotes (">", "> quote", ">> nested")
+        if trimmedLine.hasPrefix(">") {
+            var text = trimmedLine
+            var depth = 0
+            while text.hasPrefix(">") {
+                text = String(text.dropFirst())
+                depth += 1
+            }
+            text = text.trimmingCharacters(in: CharacterSet(charactersIn: " \t"))
             context.listContext.reset()
-            return blockProcessor.createBlockquote(text, context: context)
+            return blockProcessor.createBlockquote(text, depth: depth, context: context)
         }
         
         let nsLine = line as NSString
@@ -224,13 +238,6 @@ final class MarkdownParser: @unchecked Sendable {
             return listProcessor.createOrderedListItem(text, number: number, level: indentLevel, context: context)
         }
         
-        // Check for definition lists
-        if trimmedLine.hasPrefix(": ") {
-            let text = String(trimmedLine.dropFirst(2))
-            context.listContext.updateWith(level: 1, type: .definition)
-            return blockProcessor.createDefinition(text, context: context)
-        }
-        
         // Check for list continuation
         if listProcessor.isListContinuation(line, listContext: context.listContext) {
             let indentLevel = context.listContext.currentLevel
@@ -246,12 +253,7 @@ final class MarkdownParser: @unchecked Sendable {
     // MARK: - Specialized Parsing Methods
     
     private func handleEmptyLine(_ result: NSMutableAttributedString, context: ParsingContext) {
-        if context.listContext.isInList {
-            // Add reduced spacing within lists
-            result.append(MarkdownParser.newlineString)
-        } else {
-            result.append(MarkdownParser.newlineString)
-        }
+        result.append(MarkdownParser.newlineString)
     }
     
     private func parseCodeBlock(lines: [String], startIndex: Int, context: ParsingContext) -> (content: NSAttributedString, nextIndex: Int) {
@@ -286,10 +288,17 @@ final class MarkdownParser: @unchecked Sendable {
                 i += 1
             }
             
-            // No closing marker found - treat as regular text
+            // No closing marker found - per CommonMark the rest of the document
+            // is code. A lone fence with no code lines falls back to text.
             context.isInCodeBlock = false
-            let content = inlineProcessor.processInlineMarkdown(firstLine, baseFont: context.baseFont, codeFont: context.codeFont)
-            return (content: content, nextIndex: startIndex + 1)
+            let language = context.codeBlockLanguage
+            context.codeBlockLanguage = nil
+            if codeLines.isEmpty {
+                let content = inlineProcessor.processInlineMarkdown(firstLine, baseFont: context.baseFont, codeFont: context.codeFont)
+                return (content: content, nextIndex: startIndex + 1)
+            }
+            let content = blockProcessor.createCodeBlock(codeLines, language: language, context: context)
+            return (content: content, nextIndex: totalLines)
         } else {
             // Ending code block
             context.isInCodeBlock = false
@@ -317,20 +326,18 @@ final class MarkdownParser: @unchecked Sendable {
             return result
         }
         
-        // Check for double-space line break (markdown line break)
+        // Check for double-space line break (markdown hard break). The main
+        // loop appends one newline per line, which is exactly the single line
+        // break a hard break calls for — no extra newline needed.
         if line.hasSuffix("  ") && !trimmedLine.isEmpty {
             let textWithoutTrailingSpaces = String(line.dropLast(2))
-            let content = applyingBodyFormatting(
+            return applyingBodyFormatting(
                 to: inlineProcessor.processInlineMarkdown(
                     textWithoutTrailingSpaces,
                     baseFont: context.baseFont,
                     codeFont: context.codeFont
                 )
             )
-            let result = NSMutableAttributedString()
-            result.append(content)
-            result.append(MarkdownParser.newlineString)  // Hard line break
-            return result
         }
         
         // Regular paragraph text

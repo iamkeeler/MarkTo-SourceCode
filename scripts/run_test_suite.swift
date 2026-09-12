@@ -143,7 +143,7 @@ struct TestRunner {
             | John | 25 | NYC |
             | Jane | 30 | LA |
             """
-            if case .success(let attr) = converter.convertToRTF(simpleTable) {
+            if case .success(let attr) = converter.convertToAttributedString(simpleTable) {
                 let str = attr.string
                 assert(str.contains("Name") && str.contains("Age") && str.contains("City"), "Table contains headers")
                 assert(str.contains("John") && str.contains("Jane") && str.contains("NYC"), "Table contains data rows")
@@ -157,7 +157,7 @@ struct TestRunner {
             |-------------|----------|------------|
             | **Tables** | *In Progress* | `High` |
             """
-            if case .success(let attr) = converter.convertToRTF(formattedTable) {
+            if case .success(let attr) = converter.convertToAttributedString(formattedTable) {
                 let str = attr.string
                 assert(str.contains("Feature") && str.contains("Tables"), "Formatted table has content")
                 assert(str.contains("Status") && str.contains("In Progress"), "Formatted table has status content")
@@ -183,7 +183,7 @@ struct TestRunner {
             |---|---|
             | 1 | 2 |
             """
-            if case .success(let attr) = converter.convertToRTF(minimalTable) {
+            if case .success(let attr) = converter.convertToAttributedString(minimalTable) {
                 assert(attr.string.contains("A") && attr.string.contains("1"), "Minimal table converted correctly")
             } else {
                 assert(false, "Minimal table conversion succeeded")
@@ -195,7 +195,48 @@ struct TestRunner {
             assert(tableProcessor.isHeaderSeparator("|---|---|") == true, "Standard separator detected")
             assert(tableProcessor.isHeaderSeparator("|:--:|:--|") == true, "Colons in separator detected")
             assert(tableProcessor.isHeaderSeparator("| : | : |") == false, "Missing dashes correctly rejected")
-            assert(tableProcessor.isHeaderSeparator("|---x---|") == false, "Invalid characters rejected")
+            assert(tableProcessor.isHeaderSeparator("|---|") == true, "Single-column separator detected")
+
+            // Header containing pipes is not a table (M1)
+            assert(tableProcessor.isTableRow("# | a |") == false, "Header line is not a table row")
+            assert(tableProcessor.isTableRow("score | 5 |") == false, "Trailing-pipe prose is not a table row")
+            if case .success(let attr) = converter.convertToAttributedString("# | a |") {
+                assert(!attr.string.contains("│"), "Header with pipes does not render as table")
+            } else {
+                assert(false, "Header conversion succeeded")
+            }
+
+            // Unclosed fence renders as code (M5)
+            if case .success(let attr) = converter.convertToAttributedString("```swift\nlet x = 1") {
+                assert(attr.string.contains("let x = 1"), "Unclosed fence keeps code content")
+                assert(!attr.string.contains("```"), "Fence markers do not leak")
+            } else {
+                assert(false, "Unclosed fence conversion succeeded")
+            }
+
+            // Spaced horizontal rule (M7)
+            if case .success(let attr) = converter.convertToAttributedString("- - -") {
+                assert(attr.string.contains("─"), "Spaced rule renders as horizontal rule")
+            } else {
+                assert(false, "Spaced rule conversion succeeded")
+            }
+
+            // Triple emphasis (M8)
+            if case .success(let attr) = converter.convertToAttributedString("***both***") {
+                assert(!attr.string.contains("*"), "No stray markers in triple emphasis")
+                let font = attr.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+                assert(font?.fontDescriptor.symbolicTraits.contains(.bold) == true, "Triple emphasis is bold")
+                assert(font?.fontDescriptor.symbolicTraits.contains(.italic) == true, "Triple emphasis is italic")
+            } else {
+                assert(false, "Triple emphasis conversion succeeded")
+            }
+
+            // Image alt text with underscores (M3)
+            if case .success(let attr) = converter.convertToAttributedString("![a_b_c](https://example.com/i.png)") {
+                assert(attr.string.contains("[Image: a_b_c]"), "Image alt underscores preserved")
+            } else {
+                assert(false, "Image conversion succeeded")
+            }
         }
 
         // MARK: - 4. General Markdown Features Tests
@@ -208,7 +249,7 @@ struct TestRunner {
             ## Heading 2
             ### Heading 3
             """
-            if case .success(let attr) = converter.convertToRTF(headings) {
+            if case .success(let attr) = converter.convertToAttributedString(headings) {
                 assert(attr.string.contains("Heading 1"), "Heading 1 converted")
                 assert(attr.string.contains("Heading 2"), "Heading 2 converted")
                 assert(attr.string.contains("Heading 3"), "Heading 3 converted")
@@ -222,7 +263,7 @@ struct TestRunner {
             - Item 2
               - Nested item
             """
-            if case .success(let attr) = converter.convertToRTF(lists) {
+            if case .success(let attr) = converter.convertToAttributedString(lists) {
                 assert(attr.string.contains("Item 1") && attr.string.contains("Nested item"), "List items converted")
 
                 let parentRange = (attr.string as NSString).range(of: "Item 1")
@@ -238,7 +279,7 @@ struct TestRunner {
             }
 
             let tasks = "- [x] Complete\n- [ ] Pending"
-            if case .success(let attr) = converter.convertToRTF(tasks) {
+            if case .success(let attr) = converter.convertToAttributedString(tasks) {
                 assert(attr.string.contains("☑ Complete"), "Checked task list renders a checked box")
                 assert(attr.string.contains("☐ Pending"), "Unchecked task list renders an empty box")
                 assert(!attr.string.contains("[x]"), "Task list syntax is removed from output")
@@ -246,7 +287,7 @@ struct TestRunner {
                 assert(false, "Task lists converted successfully")
             }
 
-            if case .success(let attr) = converter.convertToRTF("Use A | B in prose") {
+            if case .success(let attr) = converter.convertToAttributedString("Use A | B in prose") {
                 assert(attr.string.contains("Use A | B in prose"), "A prose pipe is not misclassified as a table")
                 assert(!attr.string.contains("─┼─"), "A prose pipe does not generate table separators")
             } else {
@@ -258,14 +299,14 @@ struct TestRunner {
             let customizedConverter = MarkdownConverter(
                 formatting: FormattingSnapshot(settings: customSettings)
             )
-            if case .success(let attr) = customizedConverter.convertToRTF("Customized body") {
+            if case .success(let attr) = customizedConverter.convertToAttributedString("Customized body") {
                 let font = attr.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
                 assert(font?.pointSize == 19, "Formatting preferences affect converted body text")
             } else {
                 assert(false, "Customized formatting converted successfully")
             }
 
-            if case .success(let attr) = converter.convertToRTF(#"\*literal\* and \_also literal\_"#) {
+            if case .success(let attr) = converter.convertToAttributedString(#"\*literal\* and \_also literal\_"#) {
                 assert(
                     attr.string.contains("*literal* and _also literal_"),
                     "Escaped emphasis remains literal"
@@ -274,7 +315,7 @@ struct TestRunner {
                 assert(false, "Escaped emphasis converted successfully")
             }
 
-            if case .success(let attr) = converter.convertToRTF("`**literal**` outside") {
+            if case .success(let attr) = converter.convertToAttributedString("`**literal**` outside") {
                 assert(
                     attr.string.contains("**literal** outside"),
                     "Inline code does not parse nested Markdown"
@@ -290,7 +331,7 @@ struct TestRunner {
             print(x)
             ```
             """
-            if case .success(let attr) = converter.convertToRTF(codeBlock) {
+            if case .success(let attr) = converter.convertToAttributedString(codeBlock) {
                 assert(attr.string.contains("let x = 42"), "Code block converted")
             } else {
                 assert(false, "Code block converted successfully")
@@ -335,7 +376,7 @@ struct TestRunner {
 
             // 1. Convert Markdown to RTF.
             let converter = MarkdownConverter()
-            let result = converter.convertToRTF(sampleDoc)
+            let result = converter.convertToAttributedString(sampleDoc)
 
             guard case .success(let attributedString) = result else {
                 assert(false, "Full document conversion produced success result")

@@ -1,4 +1,5 @@
-import SwiftUI
+import Foundation
+import Combine
 import AppKit
 
 // MARK: - Theme Options

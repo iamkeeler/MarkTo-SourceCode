@@ -28,10 +28,10 @@ class ParsingContext {
     static let codeBlockPattern = try! NSRegularExpression(pattern: #"^```"#)
     
     // Trimmed variants are available to callers that have already discarded indentation.
-    static let unorderedListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+])\\s"#)
-    static let orderedListTrimmedPattern = try! NSRegularExpression(pattern: #"^\\d+\\.\\s"#)
-    static let taskListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+])\\s*\\[([ xX])\\]\\s"#)
-    static let anyListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+]|\\d+\\.)\\s+"#)
+    static let unorderedListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+])\s"#)
+    static let orderedListTrimmedPattern = try! NSRegularExpression(pattern: #"^\d+\.\s"#)
+    static let taskListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+])\s*\[([ xX])\]\s"#)
+    static let anyListTrimmedPattern = try! NSRegularExpression(pattern: #"^([-*+]|\d+\.)\s+"#)
 
     init(
         baseFont: NSFont = NSFont.systemFont(ofSize: 14),
@@ -99,14 +99,6 @@ class ParsingContext {
     func setTotalLines(_ count: Int) {
         totalLines = count
     }
-    
-    func nextLine() {
-        currentLineIndex += 1
-    }
-    
-    func isLastLine() -> Bool {
-        return currentLineIndex >= totalLines - 1
-    }
 }
 
 // MARK: - List Context (Enhanced)
@@ -150,21 +142,5 @@ class ListContext {
     
     func setContinuation() {
         lastWasListItem = false
-    }
-    
-    func getCurrentListInfo() -> ListInfo? {
-        return listStack.last
-    }
-    
-    func getNextNumber(for level: Int) -> Int {
-        // Find the ordered list at this level and return next number
-        for i in stride(from: listStack.count - 1, through: 0, by: -1) {
-            let listInfo = listStack[i]
-            if listInfo.level == level && listInfo.type == .ordered {
-                // Count items at this level
-                return (listInfo.startNumber ?? 1) + 1
-            }
-        }
-        return 1
     }
 }
